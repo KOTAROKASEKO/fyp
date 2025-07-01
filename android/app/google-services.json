@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "996611286686",
+    "project_id": "habitsgo-eaa29",
+    "storage_bucket": "habitsgo-eaa29.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:996611286686:android:214f5d637eba410fba3d8f",
+        "android_client_info": {
+          "package_name": "com.example.fyp_proj"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "996611286686-fg6q3pqj7256hrc7h4vk7jlbce418ksl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAKHbIZruAosDTE6cpoW-l30_YaOhykU0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "996611286686-fg6q3pqj7256hrc7h4vk7jlbce418ksl.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "996611286686-a0r78okoepveaqe22enc9euba1pvn47c.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.habitsgo"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:996611286686:android:7a540cc83b23dcd3ba3d8f",
+        "android_client_info": {
+          "package_name": "com.example.habitsgo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "996611286686-aar0qur661c7iko9p74psl1cua2q4g6l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.habitsgo",
+            "certificate_hash": "503b5f56ad42309dc68a49ba0f8bc6a8553daac1"
+          }
+        },
+        {
+          "client_id": "996611286686-fg6q3pqj7256hrc7h4vk7jlbce418ksl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAKHbIZruAosDTE6cpoW-l30_YaOhykU0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "996611286686-fg6q3pqj7256hrc7h4vk7jlbce418ksl.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "996611286686-a0r78okoepveaqe22enc9euba1pvn47c.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.habitsgo"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
