@@ -1,1 +1,36 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"habitsgo-eaa29","appId":"1:996611286686:android:214f5d637eba410fba3d8f","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"habitsgo-eaa29","configurations":{"android":"1:996611286686:android:214f5d637eba410fba3d8f"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "aetherchat-sm72i",
+          "appId": "1:965355667703:android:b4127db208157da07013f2",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "aetherchat-sm72i",
+          "configurations": {
+            "android": "1:965355667703:android:b4127db208157da07013f2",
+            "web": "1:965355667703:web:7917f1bbfb5037657013f2"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "venv",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "runtime": "python313"
+    }
+  ]
+}

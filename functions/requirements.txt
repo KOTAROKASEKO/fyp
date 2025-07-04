@@ -1,0 +1,10 @@
+firebase_functions~=0.1.0
+
+# Function framework
+firebase-functions
+
+# Firebase Admin SDK for Python
+firebase-admin
+
+# Google Cloud AI Platform (for Vertex AI / Gemini)
+google-cloud-aiplatform

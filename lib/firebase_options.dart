@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -53,10 +50,20 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDAKHbIZruAosDTE6cpoW-l30_YaOhykU0',
-    appId: '1:996611286686:android:214f5d637eba410fba3d8f',
-    messagingSenderId: '996611286686',
-    projectId: 'habitsgo-eaa29',
-    storageBucket: 'habitsgo-eaa29.firebasestorage.app',
+    apiKey: 'AIzaSyDCHuMbwECucFbzNO_o7e8EHyhVvpl3MxI',
+    appId: '1:965355667703:android:b4127db208157da07013f2',
+    messagingSenderId: '965355667703',
+    projectId: 'aetherchat-sm72i',
+    storageBucket: 'aetherchat-sm72i.firebasestorage.app',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyBuJGGO1ydrzx3JF_-3MnSZWT-wu4lLyNU',
+    appId: '1:965355667703:web:7917f1bbfb5037657013f2',
+    messagingSenderId: '965355667703',
+    projectId: 'aetherchat-sm72i',
+    authDomain: 'aetherchat-sm72i.firebaseapp.com',
+    storageBucket: 'aetherchat-sm72i.firebasestorage.app',
+  );
+
 }

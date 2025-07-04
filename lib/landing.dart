@@ -37,7 +37,6 @@ class _LandingPageState extends State<LandingPage> {
       // State Machineから入力（Input）を取得し、型をキャスト
       // Riveエディタで設定した入力名に合わせて変更してください
       _isJumpingInput = _stateMachineController!.findInput<bool>('isCorrect') as SMIBool?;
-      _jumpTriggerInput = _stateMachineController!.findInput<bool>('jump') as SMITrigger?;
     }
   }
 
