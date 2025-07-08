@@ -1,12 +1,14 @@
+// lib/features/3_discover/viewmodel/discover_viewmodel.dart
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fyp_proj/core/service/post_service.dart';
+import 'package:fyp_proj/features/1_authentication/userdata.dart';
+import 'package:fyp_proj/features/3_discover/viewmodel/post_service.dart';
 import 'package:fyp_proj/models/post_model.dart';
 
 class DiscoverViewModel extends ChangeNotifier {
   final PostService _postService = PostService();
 
-  // --- State ---
   List<Post> _posts = [];
   SortOrder _sortOrder = SortOrder.byDate;
   DocumentSnapshot? _lastDocument;
@@ -14,45 +16,37 @@ class DiscoverViewModel extends ChangeNotifier {
   bool _isLoadingMore = false;
   bool _hasMorePosts = true;
 
-  // --- Getters for UI ---
   List<Post> get posts => _posts;
   SortOrder get sortOrder => _sortOrder;
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
 
   DiscoverViewModel() {
-    // ViewModelが初期化されたら、最初の投稿リストを取得
     fetchInitialPosts();
   }
 
-  // --- Actions ---
-
-  // 初回の投稿リスト取得
   Future<void> fetchInitialPosts() async {
     _isLoading = true;
     _hasMorePosts = true;
-    _lastDocument = null; // リストをリフレッシュ
+    _lastDocument = null;
     notifyListeners();
 
     try {
       final result = await _postService.getPosts(sortOrder: _sortOrder);
       _posts = result.posts;
       _lastDocument = result.lastDocument;
-      if (result.posts.length < 10) { // 取得件数がlimitより少なければ、もう次はない
+      if (result.posts.length < 10) {
         _hasMorePosts = false;
       }
     } catch (e) {
       print("Error fetching initial posts: $e");
-      // TODO: エラー状態をUIに伝える
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // 追加の投稿を読み込む (ページネーション)
   Future<void> fetchMorePosts() async {
-    // 既に読み込み中、またはこれ以上投稿がない場合は何もしない
     if (_isLoadingMore || !_hasMorePosts) return;
 
     _isLoadingMore = true;
@@ -63,7 +57,7 @@ class DiscoverViewModel extends ChangeNotifier {
         sortOrder: _sortOrder,
         lastDocument: _lastDocument,
       );
-      _posts.addAll(result.posts); // 既存のリストに追加
+      _posts.addAll(result.posts);
       _lastDocument = result.lastDocument;
       if (result.posts.length < 10) {
         _hasMorePosts = false;
@@ -76,12 +70,80 @@ class DiscoverViewModel extends ChangeNotifier {
     }
   }
 
-  // ソート順を変更し、リストをリフレッシュする
   Future<void> setSortOrder(SortOrder newOrder) async {
-    if (_sortOrder == newOrder) return; // 同じ順なら何もしない
+    if (_sortOrder == newOrder) return;
 
     _sortOrder = newOrder;
-    // 投稿リストをリセットして、新しい順序で最初から取得
     fetchInitialPosts();
+  }
+
+  // --- NEW METHODS ---
+
+  // 投稿を削除する
+  Future<void> deletePost(String postId) async {
+    try {
+      await _postService.deletePost(postId);
+      // UIから投稿を即座に削除
+      _posts.removeWhere((post) => post.id == postId);
+      notifyListeners();
+    } catch (e) {
+      print("Error deleting post: $e");
+      // TODO: ユーザーにエラーを通知
+    }
+  }
+
+  // 投稿を通報する
+  Future<void> reportPost(String postId) async {
+    try {
+      await _postService.reportPost(postId);
+      // TODO: 成功したことをユーザーに通知 (例: SnackBar)
+      print("Post reported: $postId");
+    } catch (e) {
+      print("Error reporting post: $e");
+    }
+  }
+
+  // 投稿を保存する
+  Future<void> savePost(String postId) async {
+    try {
+      await _postService.savePost(postId);
+      // TODO: 成功したことをユーザーに通知
+      print("Post saved: $postId");
+    } catch (e) {
+      print("Error saving post: $e");
+    }
+  }
+
+  void toggleLike(String postId) {
+    final postIndex = _posts.indexWhere((p) => p.id == postId);
+    if (postIndex == -1) return;
+
+    final post = _posts[postIndex];
+    final isLiked = post.likedBy.contains(userData.userId);
+
+    if (isLiked) {
+      post.likeCount--;
+      post.likedBy.remove(userData.userId);
+    } else {
+      post.likeCount++;
+      post.likedBy.add(userData.userId);
+    }
+
+    notifyListeners(); // Update the UI immediately
+
+    // Then, call the service to update the backend
+    _postService.toggleLike(postId).catchError((e) {
+      // If the backend update fails, revert the change and notify the user
+      if (isLiked) {
+        post.likeCount++;
+        post.likedBy.add(userData.userId);
+      } else {
+        post.likeCount--;
+        post.likedBy.remove(userData.userId);
+      }
+      notifyListeners();
+      print("Error toggling like: $e");
+      // Optionally, show a snackbar to the user about the failure
+    });
   }
 }

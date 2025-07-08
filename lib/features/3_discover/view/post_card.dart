@@ -1,5 +1,11 @@
+// lib/features/3_discover/view/post_card.dart
+
 import 'package:flutter/material.dart';
+import 'package:fyp_proj/features/3_discover/view/comment_bottomsheet.dart';
 import 'package:fyp_proj/models/post_model.dart';
+import 'package:fyp_proj/features/1_authentication/userdata.dart'; // ユーザーIDを取得するためにインポート
+import 'package:fyp_proj/features/3_discover/viewmodel/discover_viewmodel.dart'; // ViewModelをインポート
+import 'package:provider/provider.dart'; // Providerをインポート
 import 'package:timeago/timeago.dart' as timeago;
 
 class PostCard extends StatelessWidget {
@@ -7,9 +13,65 @@ class PostCard extends StatelessWidget {
 
   const PostCard({super.key, required this.post});
 
+  // ボトムシートを表示するメソッド
+  void _showOptionsBottomSheet(BuildContext context, DiscoverViewModel viewModel) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        // 投稿の所有者かどうかを判断
+        final bool isMyPost = post.userId == userData.userId;
+
+        return Wrap(
+          children: [
+            if (isMyPost)
+              // 自分の投稿の場合：削除オプション
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Delete'),
+                onTap: () {
+                  Navigator.of(ctx).pop(); // ボトムシートを閉じる
+                  viewModel.deletePost(post.id); // ViewModelのメソッドを呼び出す
+                },
+              )
+            else ...[
+              // 他人の投稿の場合：通報と保存オプション
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: const Text('Report'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  viewModel.reportPost(post.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Post has been reported.'))
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.bookmark_border),
+                title: const Text('Save'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  viewModel.savePost(post.id);
+                   ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Post has been saved.'))
+                  );
+                },
+              ),
+            ]
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    // ViewModelのインスタンスを取得
+    final viewModel = context.watch<DiscoverViewModel>();
+    // Determine if the post is liked by the current user
+    final bool isLiked = post.likedBy.contains(userData.userId);
+
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
@@ -18,14 +80,12 @@ class PostCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Post Header: Profile Image & Username
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 20,
-                  // You can use a placeholder or the actual user profile image
                   backgroundImage: post.userProfileImageUrl.isNotEmpty
                       ? NetworkImage(post.userProfileImageUrl)
                       : null,
@@ -44,22 +104,20 @@ class PostCard extends StatelessWidget {
                   icon: const Icon(Icons.more_horiz),
                   onPressed: () {
                     // TODO: Implement more options (e.g., report, delete)
+                    _showOptionsBottomSheet(context, viewModel); // 修正：ボトムシートを表示
                   },
                 ),
               ],
             ),
           ),
-
-          // 2. Post Image
-            ClipRRect(
+          ClipRRect(
             borderRadius: const BorderRadius.all(Radius.circular(12)),
             child: AspectRatio(
-              aspectRatio: 1, // 正方形
+              aspectRatio: 1,
               child: Image.network(
               post.imageUrl,
               fit: BoxFit.cover,
               width: double.infinity,
-              // 高さはAspectRatioで制御
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) return child;
                 return Container(
@@ -76,32 +134,42 @@ class PostCard extends StatelessWidget {
               ),
             ),
             ),
-            // 3. Action Buttons: Like, Comment
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.favorite_outline, size: 28),
-                  // TODO: Implement like functionality
-                  onPressed: () {}, 
+                  icon: Icon(
+                    isLiked ? Icons.favorite : Icons.favorite_border,
+                    color: isLiked ? Colors.red : null,
+                    size: 28,
+                  ),
+                  onPressed: () {
+                    viewModel.toggleLike(post.id);
+                  },
                 ),
                 IconButton(
                   icon: const Icon(Icons.chat_bubble_outline, size: 28),
-                  // TODO: Implement comment functionality
-                  onPressed: () {},
+                   onPressed: () {
+              // THIS IS THE NEW IMPLEMENTATION
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true, // IMPORTANT: Allows the sheet to resize for the keyboard
+                backgroundColor: Colors.transparent,
+                builder: (context) {
+                  return CommentBottomSheet(postId: post.id);
+                },
+              );
+            },
                 ),
               ],
             ),
           ),
-          
-          // 4. Caption and Timestamp
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // TODO: Implement like count display
                 Text(
                   '${post.likeCount} likes',
                   style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),

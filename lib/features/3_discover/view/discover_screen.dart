@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:fyp_proj/core/service/post_service.dart';
+import 'package:fyp_proj/features/3_discover/viewmodel/post_service.dart';
 import 'package:fyp_proj/features/3_discover/view/create_post_screen.dart';
 import 'package:fyp_proj/features/3_discover/view/post_card.dart';
 import 'package:fyp_proj/features/3_discover/viewmodel/discover_viewmodel.dart';
