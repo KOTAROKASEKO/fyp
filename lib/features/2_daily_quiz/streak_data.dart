@@ -10,7 +10,6 @@ class StreakData extends HiveObject {
   @HiveField(1)
   final DateTime? lastStreakDate;
 
-  // NEW: Add a field for total points
   @HiveField(2)
   final int totalPoints;
 

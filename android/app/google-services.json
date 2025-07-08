@@ -7,50 +7,6 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:965355667703:android:a9382f6e14fe62517013f2",
-        "android_client_info": {
-          "package_name": "com.example.chatapp"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "965355667703-3qj1mjl11jfs5kboghvh3j58nml0v4jh.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.chatapp",
-            "certificate_hash": "fb575e8e5a8a74f5744671f51be470fccf04743a"
-          }
-        },
-        {
-          "client_id": "965355667703-7md7nnua0qk4jafafle96rqqc9v7sukv.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDCHuMbwECucFbzNO_o7e8EHyhVvpl3MxI"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "965355667703-7md7nnua0qk4jafafle96rqqc9v7sukv.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "965355667703-3de2rug6d0aa992gobj436tpkis7a9q3.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.example.whatsappclone"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:965355667703:android:b4127db208157da07013f2",
         "android_client_info": {
           "package_name": "com.example.fyp_proj"

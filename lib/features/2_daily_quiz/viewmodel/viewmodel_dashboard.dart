@@ -1,16 +1,16 @@
+// <file:dashboard/streak/viewmodel_dashboard.dart>
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:fyp_proj/authentication/userdata.dart';
-import 'package:fyp_proj/dashboard/quiz/quiz_model.dart';
-import 'package:fyp_proj/dashboard/streak/repository_dashboard.dart';
-import 'package:fyp_proj/dashboard/streak/streak_data.dart'; 
+import 'package:fyp_proj/features/1_authentication/userdata.dart';
+import 'package:fyp_proj/models/quiz_model.dart';
+import 'package:fyp_proj/features/2_daily_quiz/DB_quiz.dart';
+import 'package:fyp_proj/features/2_daily_quiz/streak_data.dart';
 
 enum DayStreakStatus { streaked, notStreaked, future }
 
 class DashboardViewModel extends ChangeNotifier {
   final DashboardRepository _repository;
 
-  // --- PROPERTIES ---
 
   // Loading State
   bool _isLoading = true;
@@ -25,7 +25,7 @@ class DashboardViewModel extends ChangeNotifier {
 
   List<DayStreakStatus> _weeklyStatus = List.generate(7, (_) => DayStreakStatus.future);
   List<DayStreakStatus> get weeklyStatus => _weeklyStatus;
-  
+
   // Quiz State
   Quiz? _currentQuiz;
   Quiz? get currentQuiz => _currentQuiz;
@@ -35,6 +35,13 @@ class DashboardViewModel extends ChangeNotifier {
 
   bool _isAnswerSubmitted = false;
   bool get isAnswerSubmitted => _isAnswerSubmitted;
+
+  // NEW: Ranking State
+  List<Map<String, dynamic>> _ranking = [];
+  List<Map<String, dynamic>> get ranking => _ranking;
+
+  int _myRank = 0;
+  int get myRank => _myRank;
 
   // Animation Event Stream
   final StreamController<bool> _animationTriggerController = StreamController<bool>.broadcast();
@@ -57,11 +64,12 @@ class DashboardViewModel extends ChangeNotifier {
     if (streakData.lastStreakDate != null && _normalizeDate(streakData.lastStreakDate!) == today) {
         _isAnswerSubmitted = true;
     }
-    
-    // Fetch streak data and quiz data concurrently for faster loading.
+
+    // Fetch streak, quiz, and ranking data concurrently for faster loading.
     await Future.wait([
       _loadStreakData(initialData: streakData), // Pass initial data to avoid a second read
       _loadQuiz(),
+      _loadRankingData(streakData.totalPoints), // Load ranking data
     ]);
 
     _isLoading = false;
@@ -70,7 +78,7 @@ class DashboardViewModel extends ChangeNotifier {
 
   Future<void> _loadStreakData({StreakData? initialData}) async {
     final streakData = initialData ?? await _repository.getStreakData();
-    
+
     _totalPoints = streakData.totalPoints;
 
     final today = _normalizeDate(DateTime.now());
@@ -88,10 +96,20 @@ class DashboardViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadQuiz() async {
-    // Only load a new quiz if the task isn't already done for the day
-    if (!_isAnswerSubmitted) {
-      _currentQuiz = await _repository.getDailyQuiz();
-    }
+    // MODIFIED: Fetch the quiz regardless of submission status.
+    // This ensures that the user can see the quiz results even after completing it.
+    _currentQuiz = await _repository.getDailyQuiz();
+  }
+
+  // NEW: Method to load ranking data
+  Future<void> _loadRankingData(int myPoints) async {
+    // Fetch top users and my rank concurrently
+    final results = await Future.wait([
+      _repository.getTopUsers(5), // Fetch top 5 users
+      _repository.getMyRank(myPoints),
+    ]);
+    _ranking = results[0] as List<Map<String, dynamic>>;
+    _myRank = results[1] as int;
   }
 
   // --- QUIZ INTERACTION METHODS ---
@@ -102,45 +120,59 @@ class DashboardViewModel extends ChangeNotifier {
     _selectedAnswerIndex = index;
     notifyListeners();
   }
-  
+
   void submitAnswer() {
     if (_selectedAnswerIndex == null || _currentQuiz == null || _isAnswerSubmitted) return;
 
     final bool isCorrect = _selectedAnswerIndex == _currentQuiz!.correctAnswerIndex;
-    _isAnswerSubmitted = true;
-    
+
+    // --- NEW: Update the vote count in Firestore ---
+    // We do this without waiting for it to complete to keep the UI responsive
+    _repository.updateUserVote(_currentQuiz!.id, _selectedAnswerIndex!);
+
     // Call the master task completion method with the result
     completeTodayTask(isCorrect: isCorrect);
-    
+
     // Notify UI to show correct/incorrect colors and lock the options
-    notifyListeners();
+    // This is now handled within completeTodayTask after data is saved
   }
-  
+
   // --- STREAK & POINTS UPDATE METHOD ---
   Future<void> completeTodayTask({required bool isCorrect}) async {
     // Trigger the Rive animation
     _animationTriggerController.add(isCorrect);
-    
-    // Since this method is only called on submission, we can be sure it's a new task.
-    // (The `submitAnswer` method has guards to prevent re-submission).
+
     final currentData = await _repository.getStreakData();
     final today = _normalizeDate(DateTime.now());
 
-    const int loginPoint = 1;
     const int correctBonus = 5;
-    int pointsToAdd = loginPoint;
-    if (isCorrect) {
-      pointsToAdd += correctBonus;
-    }
-    final newTotalPoints = currentData.totalPoints + pointsToAdd;
+    int basePointsForDay = 1;
 
     int newStreakCount;
     final lastDate = currentData.lastStreakDate != null ? _normalizeDate(currentData.lastStreakDate!) : null;
     if (lastDate != null && today.difference(lastDate).inDays == 1) {
       newStreakCount = currentData.currentStreak + 1;
-    } else {
+    } else if (lastDate == today) {
+      newStreakCount = currentData.currentStreak;
+    }
+    else {
       newStreakCount = 1;
     }
+
+    // Apply tiered points based on newStreakCount
+    if (newStreakCount == 3) {
+      basePointsForDay = 5;
+    } else if (newStreakCount == 7) {
+      basePointsForDay = 100;
+    }
+
+    int pointsToAdd = basePointsForDay;
+    if (isCorrect) {
+      pointsToAdd += correctBonus;
+    }
+
+    final newTotalPoints = currentData.totalPoints + pointsToAdd;
+
 
     final newStreakData = StreakData(
       currentStreak: newStreakCount,
@@ -151,9 +183,14 @@ class DashboardViewModel extends ChangeNotifier {
     try {
       await _repository.updateStreakData(newStreakData);
       // Update local state to reflect the changes immediately
-      _currentStreak = newStreakCount;
-      _totalPoints = newTotalPoints;
+      _currentStreak = newStreakData.currentStreak;
+      _totalPoints = newStreakData.totalPoints;
+      _isAnswerSubmitted = true; // Mark as submitted
       _updateWeeklyStatus();
+
+      // NEW: Reload ranking data after points update
+      await _loadRankingData(newTotalPoints);
+
       notifyListeners();
     } catch (e) {
       print("Failed to save streak: $e");

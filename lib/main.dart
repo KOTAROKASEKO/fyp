@@ -1,23 +1,27 @@
+// lib/main.dart
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart'; // Assuming you have a Firebase config
-import 'package:fyp_proj/authentication/auth_screen.dart';
-import 'package:fyp_proj/dashboard/streak/repository_dashboard.dart'; 
-import 'package:fyp_proj/dashboard/view_dashboard.dart'; // Adjust path
+import 'package:firebase_core/firebase_core.dart';
+import 'package:fyp_proj/features/1_authentication/auth_screen.dart';
+import 'package:fyp_proj/features/1_authentication/userdata.dart';
+import 'package:fyp_proj/features/2_daily_quiz/DB_quiz.dart';
+import 'package:fyp_proj/features/app/app_main_screen.dart';
+import 'package:fyp_proj/firebase_options.dart';
 
 void main() async {
-  // 1. Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 2. Initialize external services like Firebase and your database
-  await Firebase.initializeApp(); // Replace with your Firebase init if needed
-  await initDatabase();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  ); 
 
-  // 3. Run the app only after all initializations are complete
+      // --- ここからが重要 ---
+      print("🔥🔥🔥 FirebaseAppCheck: Activating DEBUG provider NOW. 🔥🔥🔥"); 
+  await initDatabase();
   runApp(const MyApp());
 }
 
-// This function now properly awaits the Hive initialization
 Future<void> initDatabase() async {
   await DashboardRepository.initialize();
 }
@@ -28,21 +32,36 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Streak App',
+      title: 'Voyage AI', // Changed app title for inspiration
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        brightness: Brightness.dark,
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blueAccent,
+          primary: Colors.blueAccent,
+          secondary: Colors.amber,
+          surface: Colors.white,
+          background: const Color(0xFFF8F9FA), // A lighter, cleaner background
+          error: Colors.red,
+          onPrimary: Colors.white,
+          onSecondary: const Color.fromARGB(221, 88, 88, 88),
+          onSurface: const Color.fromARGB(221, 50, 50, 50),
+          onBackground: const Color.fromARGB(221, 78, 78, 78),
+          onError: Colors.white,
+        ),
+        useMaterial3: true,
       ),
-      home: StreamBuilder(
+      home: StreamBuilder<User?>( // Explicitly type the stream
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasData) {
-            return const DashboardScreen();
+          if (snapshot.hasData && snapshot.data != null) {
+            userData.initUserId();
+            return const MainAppScreen();
           } else {
-            return const AuthScreen(); // Make sure you have this screen implemented
+            return const AuthScreen();
           }
         },
       ),

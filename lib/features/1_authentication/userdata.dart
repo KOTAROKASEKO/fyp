@@ -8,5 +8,4 @@ class userData{
   static void initUserId() {
     _userId = FirebaseAuth.instance.currentUser?.uid ?? "";
   }
-
 }
