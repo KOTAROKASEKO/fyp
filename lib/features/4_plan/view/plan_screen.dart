@@ -1,6 +1,7 @@
 // lib/screens/plan_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:fyp_proj/features/4_plan/view/plan_creation_screen.dart';
 
 class PlanScreen extends StatelessWidget {
   const PlanScreen({super.key});
@@ -23,7 +24,24 @@ class PlanScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () {},
+                onPressed: () {
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                    const PlanCreationView(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    const begin = Offset(1.0, 0.0);
+                    const end = Offset.zero;
+                    const curve = Curves.ease;
+                    final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                    return SlideTransition(
+                    position: animation.drive(tween),
+                    child: child,
+                    );
+                  },
+                  ),
+                );
+              },
               icon: const Icon(Icons.bolt),
               label: const Text('Let AI suggest a trip!'),
               style: FilledButton.styleFrom(

@@ -104,13 +104,33 @@ class DiscoverViewModel extends ChangeNotifier {
   }
 
   // 投稿を保存する
-  Future<void> savePost(String postId) async {
+    Future<void> savePost(String postId) async {
+    // 1. UI上の投稿リストから、対象の投稿を探す
+    final postIndex = _posts.indexWhere((p) => p.id == postId);
+    if (postIndex == -1) {
+      // 万が一見つからなければ、何もせず処理を終了する
+      return;
+    }
+
+    final post = _posts[postIndex];
+    final originalSaveState = post.isSaved; // 失敗した場合に備え、元の状態を記憶しておく
+
+    // 2. オプティミスティックUI：まずUIを即座に更新する
+    post.isSaved = !post.isSaved; // 保存状態を反転させる
+    notifyListeners(); // UIに変更を通知して再描画させる
+
+    // 3. バックエンド処理：UIとは非同期で、実際のデータ保存処理を呼び出す
     try {
-      await _postService.savePost(postId);
-      // TODO: 成功したことをユーザーに通知
-      print("Post saved: $postId");
+      await _postService.toggleSavePost(postId); // サービス層のメソッドを呼び出す
     } catch (e) {
+      // 4. エラー処理とロールバック：バックエンド処理が失敗した場合
       print("Error saving post: $e");
+
+      // ユーザー体験を損なわないよう、UIを元の状態に戻す
+      post.isSaved = originalSaveState;
+      notifyListeners(); // UIに変更を通知して再描画させる
+
+      // TODO: ユーザーにエラーが発生したことをSnackBarなどで通知する
     }
   }
 

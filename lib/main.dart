@@ -6,24 +6,31 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:fyp_proj/features/1_authentication/auth_screen.dart';
 import 'package:fyp_proj/features/1_authentication/userdata.dart';
-import 'package:fyp_proj/features/2_daily_quiz/DB_quiz.dart';
+import 'package:fyp_proj/features/2_daily_quiz/DATABASE/DB_quiz.dart';
+import 'package:fyp_proj/features/2_daily_quiz/DATABASE/streak_data.dart';
+import 'package:fyp_proj/features/5_profile/model/user_profile_model.dart';
 import 'package:fyp_proj/features/app/app_main_screen.dart';
 import 'package:fyp_proj/firebase_options.dart';
+import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   ); 
-
-      // --- ここからが重要 ---
-      print("🔥🔥🔥 FirebaseAppCheck: Activating DEBUG provider NOW. 🔥🔥🔥"); 
-  await initDatabase();
+  await  initHive();
   runApp(const MyApp());
 }
 
-Future<void> initDatabase() async {
-  await DashboardRepository.initialize();
+Future<void> initHive() async {
+  await Hive.initFlutter();
+  // Register all adapters
+  Hive.registerAdapter(StreakDataAdapter());
+  Hive.registerAdapter(UserProfileAdapter());
+  // Open all boxes
+  await Hive.openBox<StreakData>('streakBox');
+  await Hive.openBox<UserProfile>('userProfileBox');
 }
 
 class MyApp extends StatelessWidget {

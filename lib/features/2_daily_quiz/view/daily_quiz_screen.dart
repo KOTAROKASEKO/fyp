@@ -8,7 +8,7 @@ import 'package:fyp_proj/features/1_authentication/userdata.dart';
 import 'package:provider/provider.dart';
 import 'package:rive/rive.dart' hide Image;
 import 'package:fyp_proj/features/2_daily_quiz/viewmodel/viewmodel_dashboard.dart';
-import 'package:fyp_proj/features/2_daily_quiz/DB_quiz.dart';
+import 'package:fyp_proj/features/2_daily_quiz/DATABASE/DB_quiz.dart';
 import 'package:fyp_proj/models/quiz_model.dart';
 
 // The new screen that will be a tab in the main navigation
@@ -215,7 +215,7 @@ class _DashboardViewState extends State<_DashboardView> {
             ),
             const SizedBox(height: 4),
             Text(
-              "Points: ${viewModel.totalPoints} pt",
+              "${viewModel.totalPoints} pt",
               style: textTheme.titleLarge?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.bold,

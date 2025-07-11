@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fyp_proj/features/1_authentication/userdata.dart';
 import 'package:fyp_proj/models/quiz_model.dart';
-import 'package:fyp_proj/features/2_daily_quiz/streak_data.dart';
+import 'package:fyp_proj/features/2_daily_quiz/DATABASE/streak_data.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -10,11 +10,6 @@ class DashboardRepository {
   // IMPORTANT: Replace with your actual user ID logic (e.g., from FirebaseAuth)
   static const String _streakBoxName = 'streakBox';
 
-  static Future<void> initialize() async {
-    await Hive.initFlutter();
-    Hive.registerAdapter(StreakDataAdapter());
-    await Hive.openBox<StreakData>(_streakBoxName);
-  }
 
   Future<StreakData> getStreakData() async {
     final box = Hive.box<StreakData>(_streakBoxName);

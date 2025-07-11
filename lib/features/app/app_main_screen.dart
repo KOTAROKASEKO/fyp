@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:fyp_proj/features/2_daily_quiz/view/daily_quiz_screen.dart';
 import 'package:fyp_proj/features/3_discover/view/discover_screen.dart';
-import 'package:fyp_proj/features/4_plan/plan_screen.dart';
-import 'package:fyp_proj/features/5_profile/profile_screen.dart';
+import 'package:fyp_proj/features/4_plan/view/plan_screen.dart';
+import 'package:fyp_proj/features/5_profile/view/profile_screen.dart';
 
 class MainAppScreen extends StatefulWidget {
   const MainAppScreen({super.key});

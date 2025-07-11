@@ -89,7 +89,7 @@ class _DiscoverViewState extends State<_DiscoverView> with AutomaticKeepAliveCli
           ),
            body: viewModel.isLoading
               ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
+              : SafeArea(child:RefreshIndicator(
                   onRefresh: () => viewModel.fetchInitialPosts(),
                   child: ListView.builder(
                     controller: _scrollController,
@@ -109,7 +109,7 @@ class _DiscoverViewState extends State<_DiscoverView> with AutomaticKeepAliveCli
                     },
                   ),
                 ),
-        );
+        ));
       },
     );
   }

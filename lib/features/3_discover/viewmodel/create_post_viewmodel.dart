@@ -6,27 +6,62 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
-
 class CreatePostViewModel extends ChangeNotifier {
+  final List<String> _manualTags = [];
   final PostService _postService = PostService();
   final ImagePicker _picker = ImagePicker();
 
-  File? _selectedImage;
+  List<File> _selectedImages = [];
   String _caption = '';
   bool _isPosting = false;
+  bool _hasUnsavedChanges = false; // 下書き保存のフラグ
 
-  File? get selectedImage => _selectedImage;
+  // --- MODIFIED: ゲッターもリストを返すように変更 ---
+  List<File> get selectedImages => _selectedImages;
   String get caption => _caption;
   bool get isPosting => _isPosting;
+  bool get hasUnsavedChanges => _hasUnsavedChanges;
+  bool get canSubmit => (_caption.isNotEmpty || _selectedImages.isNotEmpty) && !_isPosting;
+  List<String> get manualTags => _manualTags;
+
+  
 
   void setCaption(String value) {
     _caption = value;
+    _updateUnsavedChangesFlag();
   }
 
-  Future<void> pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      _selectedImage = File(image.path);
+  void _updateUnsavedChangesFlag() {
+    _hasUnsavedChanges = _selectedImages.isNotEmpty || _caption.isNotEmpty;
+    notifyListeners();
+  }
+
+  Future<void> pickImages() async {
+    final List<XFile> images = await _picker.pickMultiImage();
+    if (images.isNotEmpty) {
+      _selectedImages.addAll(images.map((xfile) => File(xfile.path)));
+      _updateUnsavedChangesFlag();
+      notifyListeners();
+    }
+  }
+
+  void addTag(String tag) {
+    final formattedTag = tag.trim().toLowerCase();
+    if (formattedTag.isNotEmpty && !_manualTags.contains(formattedTag)) {
+      _manualTags.add(formattedTag);
+      notifyListeners();
+    }
+  }
+
+  void removeTag(String tag) {
+    _manualTags.remove(tag);
+    notifyListeners();
+  }
+  
+  void removeImage(int index) {
+    if (index >= 0 && index < _selectedImages.length) {
+      _selectedImages.removeAt(index);
+      _updateUnsavedChangesFlag();
       notifyListeners();
     }
   }
@@ -41,46 +76,69 @@ class CreatePostViewModel extends ChangeNotifier {
       quality: 88,
       format: CompressFormat.webp,
     );
-
-    return File(result!.path);
+    // resultがnullの場合を考慮
+    if (result == null) {
+      throw Exception("Image compression failed.");
+    }
+    return File(result.path);
   }
-
-  Future<String> uploadFile(File file) async {
-    final fileName = 'posts/${DateTime.now().millisecondsSinceEpoch}.webp';
-    final ref = FirebaseStorage.instance.ref().child(fileName);
-    final uploadTask = ref.putFile(file);
-    final snapshot = await uploadTask.whenComplete(() => {});
-    return await snapshot.ref.getDownloadURL();
-  }
-
 
   Future<bool> submitPost() async {
-    if (_selectedImage == null || _caption.isEmpty || _isPosting) {
+    // --- MODIFIED: Use the new computed property for the guard clause ---
+    if (!canSubmit) {
       return false;
     }
-
+    
     _isPosting = true;
     notifyListeners();
 
     try {
-      // 1. Compress and convert the image
-      final compressedImage = await compressAndConvertToWebP(_selectedImage!);
+      // Logic is the same: upload files if they exist, then create post.
+      List<String> imageUrls = [];
+      if (_selectedImages.isNotEmpty) {
+        imageUrls = await uploadFiles(_selectedImages);
+      }
 
-      // 2. Upload to Firebase Storage
-      final imageUrl = await uploadFile(compressedImage);
-
-      // 3. Create the post with the new image URL
       await _postService.createPost(
         caption: _caption,
-        imageUrl: imageUrl, // You'll need to update your PostService to accept an imageUrl
+        imageUrls: imageUrls,
+        manualTags: _manualTags,
       );
-      return true; // Success
+
+  
+      
+      _hasUnsavedChanges = false;
+      return true;
     } catch (e) {
       print("Post submission failed: $e");
-      return false; // Failure
+      return false;
     } finally {
       _isPosting = false;
       notifyListeners();
     }
+  }
+
+  // --- MODIFIED: 複数ファイルをアップロードするロジック ---
+  Future<List<String>> uploadFiles(List<File> files) async {
+    List<String> imageUrls = [];
+    for (var file in files) {
+      final compressedFile = await compressAndConvertToWebP(file);
+      final fileName = 'posts/${DateTime.now().millisecondsSinceEpoch}_${imageUrls.length}.webp';
+      final ref = FirebaseStorage.instance.ref().child(fileName);
+      final uploadTask = ref.putFile(compressedFile);
+      final snapshot = await uploadTask.whenComplete(() => {});
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      imageUrls.add(downloadUrl);
+    }
+    return imageUrls;
+  }
+
+  
+  // --- NEW: 下書きをクリアするメソッド ---
+  void clearDraft() {
+    _selectedImages = [];
+    _caption = '';
+    _hasUnsavedChanges = false;
+    notifyListeners();
   }
 }

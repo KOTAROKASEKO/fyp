@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fyp_proj/features/1_authentication/userdata.dart';
 import 'package:fyp_proj/models/quiz_model.dart';
-import 'package:fyp_proj/features/2_daily_quiz/DB_quiz.dart';
-import 'package:fyp_proj/features/2_daily_quiz/streak_data.dart';
+import 'package:fyp_proj/features/2_daily_quiz/DATABASE/DB_quiz.dart';
+import 'package:fyp_proj/features/2_daily_quiz/DATABASE/streak_data.dart';
 
 enum DayStreakStatus { streaked, notStreaked, future }
 

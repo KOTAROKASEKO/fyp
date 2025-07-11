@@ -1,9 +1,5 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:fyp_proj/debug/debug_print.dart';
 import 'package:fyp_proj/features/1_authentication/userdata.dart';
 import 'package:fyp_proj/models/comment_model.dart';
 import 'package:fyp_proj/models/paginated_post.dart';
@@ -17,7 +13,8 @@ class PostService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _collectionPath = 'posts';
   final CollectionReference _postsCollection = FirebaseFirestore.instance.collection('posts');
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final CollectionReference _usersCollection = FirebaseFirestore.instance.collection('users');
+  
 
   Future<PaginatedPosts> getPosts({
     required SortOrder sortOrder,
@@ -56,28 +53,63 @@ class PostService {
     return PaginatedPosts(posts: posts, lastDocument: newLastDocument);
   }
 
+  Future<List<Post>> getSavedPosts(String userId) async {
+    try {
+      // 1. Get the IDs of all saved posts.
+      final savedPostsSnapshot =
+          await _usersCollection.doc(userId).collection('savedPosts').get();
+
+      if (savedPostsSnapshot.docs.isEmpty) {
+        return []; // The user has no saved posts.
+      }
+
+      final savedPostIds = savedPostsSnapshot.docs.map((doc) => doc.id).toList();
+
+      // 2. Fetch the actual post documents for those IDs.
+      // Firestore's 'in' query is efficient for up to 10 items.
+      // For simplicity, we'll fetch all at once. For >10, you might need batching.
+      final postsSnapshot = await _postsCollection
+          .where(FieldPath.documentId, whereIn: savedPostIds)
+          .get();
+
+      // Convert the documents to Post objects.
+      // All posts here are considered "saved".
+      final savedPosts = postsSnapshot.docs
+          .map((doc) => Post.fromFirestore(
+              doc as DocumentSnapshot<Map<String, dynamic>>,
+              isSaved: true))
+          .toList();
+
+      return savedPosts;
+    } catch (e) {
+      print("Error fetching saved posts: $e");
+      return [];
+    }
+  }
+
   Future<void> createPost({
     required String caption,
-    required String imageUrl, // Changed from imageFile
+    required List<String> imageUrls, //
+    required List<String> manualTags
   }) async {
     try {
-      final user = _auth.currentUser; // Assuming you have FirebaseAuth instance
+      final user = _auth.currentUser;
       if (user == null) throw Exception("User not logged in");
 
-      // Fetch user details (username, profile picture) from Firestore
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final username = userDoc.data()?['username'] ?? 'Anonymous';
       final userProfileImageUrl = userDoc.data()?['profileImageUrl'] ?? '';
 
       await _firestore.collection('posts').add({
         'caption': caption,
-        'imageUrl': imageUrl, // Use the URL from Firebase Storage
+        'imageUrls': imageUrls, // --- MODIFIED: imageUrlsをリストで保存 ---
         'userId': user.uid,
         'username': username,
         'userProfileImageUrl': userProfileImageUrl,
         'likeCount': 0,
         'timestamp': FieldValue.serverTimestamp(),
-        'likedBy': [], // Initialize with an empty list
+        'likedBy': [],
+        'manualTags': manualTags,
       });
     } catch (e) {
       print("Error creating post: $e");
@@ -184,9 +216,65 @@ class PostService {
     });
   }
 
-  deletePost(String postId) {}
+  deletePost(String postId) {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) {
+      throw Exception("User is not logged in.");
+    }
+
+    // 1. Define the precise location of our target document.
+    // This path is posts/{postId}.
+    final postRef = _postsCollection.doc(postId);
+
+    // 2. Check if the post exists.
+    return postRef.get().then((doc) {
+      if (!doc.exists) {
+        throw Exception("Post does not exist.");
+      }
+
+      // 3. If it exists, delete the post.
+      return postRef.delete();
+    }).catchError((error) {
+      print("Error deleting post: $error");
+      throw error; // Re-throw to handle in the ViewModel
+    });
+  }
 
   reportPost(String postId) {}
 
-  savePost(String postId) {}
+ Future<void> toggleSavePost(String postId) async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) {
+        throw Exception("User is not logged in.");
+      }
+
+      // 1. Define the precise location of our target document.
+      // This path is users/{userId}/savedPosts/{postId}.
+      // It's a direct link to the "bookmark" itself.
+      final savedPostRef =
+          _usersCollection.doc(userId).collection('savedPosts').doc(postId);
+
+      // 2. Check for the document's existence.
+      final doc = await savedPostRef.get();
+
+      if (doc.exists) {
+        // 3. If it exists, the post is currently saved.
+        // The action is to UNSAVE it by deleting the document.
+        await savedPostRef.delete();
+      } else {
+        // 4. If it does not exist, the post is not saved.
+        // The action is to SAVE it by creating the document.
+        // We store a timestamp for potential future features (e.g., sort by date saved).
+        await savedPostRef.set({'timestamp': FieldValue.serverTimestamp()});
+      }
+    } catch (e) {
+      // 5. If any part of this process fails, we catch the error.
+      print("Error toggling save state: $e");
+      // Re-throw the exception so the ViewModel can catch it and handle the UI rollback.
+      throw e;
+    }
+  }
+
+
 }
