@@ -1,293 +1,216 @@
-import logging
-import json
-import random
-from datetime import datetime
-from zoneinfo import ZoneInfo
+# main.py
 
-# 統合されたFirebaseとGoogle Cloudのインポート
+import logging
+import os
+import json
 import firebase_admin
 from firebase_admin import firestore
-from firebase_functions import firestore_fn, scheduler_fn, options
-from google.cloud import vision
-import vertexai
-from vertexai.generative_models import GenerativeModel
+from firebase_functions import options, firestore_fn
 
+# Google Cloud Services
+from google.cloud import secretmanager
+import google.generativeai as genai
+import googlemaps
+import vertexai # Keep this for other potential functions
+
+# --- Step 1: Initialize Firebase Admin SDK ---
+# This runs once per instance, which is safe.
 firebase_admin.initialize_app()
+
+# --- Step 2: Set Global Function Options ---
 options.set_global_options(
     region="asia-southeast1",
     memory=options.MemoryOption.GB_1,
 )
 
-options.set_global_options(
-    region="asia-southeast1",
-    memory=options.MemoryOption.GB_1,
-)
+# --- Step 3: Define Global Client Placeholders ---
+# These are placeholders. We will initialize them lazily (on-demand)
+# to avoid running code during deployment analysis.
+gmaps_client = None
+generative_model = None
 
-@scheduler_fn.on_schedule(schedule="every day 00:05", timezone="Pacific/Kiritimati")
-def generate_daily_quiz(event: scheduler_fn.ScheduledEvent) -> None:
-    """
-    A scheduled function to generate a daily quiz about a random country's food.
-    """
-    logging.info("--- Function execution started. ---")
-    
-    try: 
-        # Change 2: Defined a list of countries for the quiz
-        countries = [
-            "Japan", "Italy", "China", "Mexico", "India", "France", "Spain",
-            "Greece", "Vietnam", "Turkey", "South Korea", "United States", "Brazil",
-            "Argentina", "Peru", "Morocco","Indonesia",
-            "Malaysia", "Germany", "United Kingdom", "Russia", "Portugal", "Hungary",
-            "Canada", "Australia", "New Zealand",
-            "Sweden", "Philippines"
-        ]
-        chosen_country = random.choice(countries)
-        logging.info(f"Chosen country for today's food quiz: {chosen_country}")
-
-        PROJECT_ID = "aetherchat-sm72i"
-        vertexai.init(project=PROJECT_ID)
-        db = firestore.client()
-        gemini_model = GenerativeModel("gemini-2.5-flash")
-        logging.info("Checkpoint 2: Clients initialized.")
-
-        kiribati_tz = ZoneInfo("Pacific/Kiritimati")
-        date_string = datetime.now(kiribati_tz).strftime('%Y-%m-%d')
-        
-        quiz_doc_ref = db.collection("quizzes").document(date_string)
-
-        if quiz_doc_ref.get().exists:
-            logging.warning(f"Quiz for {date_string} already exists. Skipping generation.")
-            return
-
-        logging.info("Checkpoint 3: Document does not exist. Proceeding to generate quiz.")
-        
-        # Change 3: Updated prompt to generate a quiz about the chosen country's food
-        prompt = f"""
-        As an assistant, you will generate a quiz about the cuisine of a specific country.
-        Today's country is "{chosen_country}".
-
-        Please generate a thought-provoking multiple-choice quiz question about "{chosen_country}"'s cuisine.
-        Mixing in names of dishes from that country or neighboring countries will make the quiz more interesting.
-
-        The response MUST be a single, valid JSON object that follows this strict format:
-        {{
-          "question": "string (The question text in English.)",
-          "options": "array of 4 strings (The multiple choice options in English.)",
-          "correctOptionIndex": "integer (0-3, the index of the correct answer in the options array.)",
-          "explanation": "string (A brief explanation in English of why the answer is correct.)",
-          "country": "{chosen_country}"
-        }}
-        Output ONLY the valid JSON object. DO NOT use markdown. DO NOT add any extra text before or after the JSON object.
-        """
-        logging.info("Checkpoint 4: Prompt created. Calling Gemini API...")
-
-        response = gemini_model.generate_content(prompt)
-        logging.info("Checkpoint 5: Gemini API call finished.")
-
-        content = response.text
-        if not content:
-            logging.error("AI response content was empty. Stopping execution.")
-            return
-
-        logging.info(f"Checkpoint 6: AI response received, length: {len(content)}. Attempting to parse JSON.")
-        
-        quiz_data = json.loads(content)
-        logging.info("Checkpoint 7: JSON parsing successful. Preparing to save to Firestore.")
-
-        quiz_data['createdAt'] = firestore.SERVER_TIMESTAMP
-        quiz_data['date'] = date_string
-        
-        quiz_doc_ref.set(quiz_data)
-        logging.info(f"--- SUCCESS: Quiz for {date_string} ({chosen_country}) saved to Firestore! ---")
-
-    except Exception as e:
-        logging.error(f"CRITICAL ERROR in try block: {e}", exc_info=True)
+# --- Step 4: Import Function Definitions ---
+# This allows Firebase to discover functions in other files.
+from dailyquiz import generate_daily_quiz
+from posts import autoTagPost, onPostInteraction, onPostSaved, onPostUnsaved
 
 
-@firestore_fn.on_document_created(document="posts/{postId}")
-def autoTagPost(event: firestore_fn.Event[firestore.DocumentSnapshot]) -> None:
-    """
-    Analyzes a list of images from a new post, aggregates all relevant tags,
-    and updates the document with a unique list of tags.
-    """
-    if event.data is None:
-        logging.warning("Document data does not exist. Skipping processing.")
-        return
-
-    post_ref = event.data.reference
-    post_data = event.data.to_dict()
-    
-    # MODIFIED: Get the list of URLs, not a single URL.
-    image_urls = post_data.get("imageUrls") 
-    
-    # VALIDATION: Ensure imageUrls is a non-empty list.
-    if not isinstance(image_urls, list) or not image_urls:
-        logging.info(f"Post {post_ref.id} has no valid list of imageUrls. Skipping.")
-        return
-
-    logging.info(f"Analyzing {len(image_urls)} image(s) for post {post_ref.id}.")
-    
-    aggregated_tags = set()
-
+def _get_secret(secret_id: str, project_id: str) -> str | None:
+    """Fetches a secret from Google Cloud Secret Manager."""
     try:
-        # LAZY INITIALIZATION: Initialize the client inside the function.
-        client = vision.ImageAnnotatorClient()
+        client = secretmanager.SecretManagerServiceClient()
+        name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+        response = client.access_secret_version(request={"name": name})
+        return response.payload.data.decode("UTF-8")
+    except Exception as e:
+        logging.error(f"Failed to access secret {secret_id}. Error: {e}")
+        return None
 
-        # LOOP: Analyze each image URL from the list.
-        for url in image_urls:
-            if not url: # Skip empty URL strings
-                continue
-            
-            logging.info(f"Processing URL: {url}")
-            image = vision.Image(source=vision.ImageSource(image_uri=url))
-            response = client.label_detection(image=image)
-            labels = response.label_annotations
+def _initialize_clients():
+    """
+    Initializes API clients if they haven't been already.
+    This function is called at the beginning of any HTTP or event-triggered function
+    that needs these clients. It runs only on a 'cold start'.
+    """
+    global gmaps_client, generative_model
 
-            # Add high-confidence labels to the set.
-            for label in labels:
-                if label.score > 0.75:
-                    aggregated_tags.add(label.description.lower())
+    # The GCP_PROJECT environment variable is reliably available in the runtime environment.
+    PROJECT_ID = os.environ.get("GCP_PROJECT")
+    if not PROJECT_ID:
+        logging.critical("GCP_PROJECT environment variable not set. Cannot initialize clients.")
+        return
 
-        # WRITE ONCE: After analyzing all images, update Firestore a single time.
-        if aggregated_tags:
-            # Convert the set to a list for Firestore.
-            final_tags = list(aggregated_tags)
-            logging.info(f"Aggregated unique tags: {', '.join(final_tags)}")
-            post_ref.update({"AutoTags": final_tags})
+    # Initialize Google Maps Client
+    if gmaps_client is None:
+        MAPS_API_KEY = _get_secret("Maps_API_KEY", PROJECT_ID)
+        if MAPS_API_KEY:
+            gmaps_client = googlemaps.Client(key=MAPS_API_KEY)
         else:
-            logging.info("No tags above the confidence threshold were found in any image.")
+            logging.error("Maps API Key is missing. Maps functionality will be disabled.")
 
-    except Exception as e:
-        logging.error(f"Error occurred during image processing for post {post_ref.id}: {e}", exc_info=True)
-
-def _update_user_preferences(user_id: str, post_tags: list, weight: int):
-    """
-    Updates a user's preference scores based on post tags.
-
-    Args:
-        user_id (str): The ID of the user to update.
-        post_tags (list): A list of tags from the post.
-        weight (int): The value to increment the score by (e.g., 1 for a like, -1 for an unlike).
-    """
-    if not user_id or not isinstance(post_tags, list) or not post_tags:
-        logging.warning("Invalid input for preference update. Skipping.")
-        return
-
-    db = firestore.client()
-    
-    # 1. Fetch the master taxonomy list to categorize tags.
-    # ASSUMPTION: Your taxonomies are stored in a single document named 'master_list'.
-    # If your document has a different name (like 'id' from your screenshot), change it here.
+    # Initialize Generative AI Model
+    if generative_model is None:
+        GOOGLE_AI_API_KEY = _get_secret("GOOGLE_AI_API_KEY", PROJECT_ID)
+        if GOOGLE_AI_API_KEY:
+            genai.configure(api_key=GOOGLE_AI_API_KEY)
+            generative_model = genai.GenerativeModel('gemini-2.5-flash')
+        else:
+            logging.error("Google AI API Key is missing. AI functionality will be disabled.")
+            
+    # Initialize Vertex AI (if needed by other functions in the future)
+    # This is a lightweight init and generally safe, but can also be done here.
     try:
-        taxonomy_ref = db.collection("taxonomies").document("master_list")
-        taxonomies_doc = taxonomy_ref.get()
-        if not taxonomies_doc.exists:
-            logging.error("Taxonomy document 'master_list' not found. Cannot categorize tags.")
-            return
-        taxonomies = taxonomies_doc.to_dict()
+        vertexai.init(project=PROJECT_ID)
     except Exception as e:
-        logging.error(f"Failed to fetch taxonomies: {e}", exc_info=True)
-        return
-        
-    user_ref = db.collection("users").document(user_id)
-    lower_case_post_tags = {tag.lower() for tag in post_tags}
-    update_payload = {}
+        logging.warning(f"Could not initialize Vertex AI: {e}")
+
+
+#
+# 👇 CORRECTED TRIGGER PATH
+# This now listens for new documents inside any 'plans' subcollection.
+#
+@firestore_fn.on_document_created(document="travelRequests/{userId}/plans/{planId}")
+def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) -> None:
+    """
+    Triggered by Firestore document creation in the 'plans' subcollection.
+    Orchestrates the AI travel plan generation.
+    """
+    # --- LAZY INITIALIZATION ---
+    _initialize_clients()
     
-    # 2. Match post tags against each taxonomy category.
-    for category, valid_tags in taxonomies.items():
-        if isinstance(valid_tags, list):
-            # Find the intersection between the post's tags and the category's valid tags.
-            matched_tags = lower_case_post_tags.intersection({t.lower() for t in valid_tags})
-            for tag in matched_tags:
-                # 3. Build the update payload using dot notation for nested fields.
-                # This will atomically increment the score for 'preferences.activities.beach', for example.
-                field_path = f"preferences.{category}.{tag}"
-                update_payload[field_path] = firestore.FieldValue.increment(weight)
-    
-    # 4. Atomically update the user's document if any matches were found.
-    if update_payload:
-        logging.info(f"Updating preferences for user {user_id} with weight {weight}. Payload: {update_payload}")
-        user_ref.update(update_payload)
-    else:
-        logging.info(f"No tags from post matched any taxonomy for user {user_id}.")
-
-
-# --- Trigger 1: Handling Likes and Unlikes ---
-
-@firestore_fn.on_document_updated(document="posts/{postId}")
-def onPostInteraction(event: firestore_fn.Event[firestore_fn.Change]) -> None:
-    """
-    Triggers on post updates to detect new likes or unlikes.
-    """
-    before_data = event.data.before.to_dict() if event.data.before else {}
-    after_data = event.data.after.to_dict() if event.data.after else {}
-
-    # Ensure 'likedBy' and 'AutoTags' fields exist
-    if "likedBy" not in after_data or "AutoTags" not in after_data:
-        logging.info("Update was not related to 'likedBy' or 'AutoTags' are missing. Skipping.")
+    if not gmaps_client or not generative_model:
+        logging.error("Aborting travel plan generation due to client initialization failure.")
         return
-
-    post_tags = after_data.get("AutoTags", [])
-    before_likers = set(before_data.get("likedBy", []))
-    after_likers = set(after_data.get("likedBy", []))
-
-    # Case 1: Detect a new "like" (a user was added)
-    new_likers = after_likers - before_likers
-    if new_likers:
-        liker_id = new_likers.pop()
-        logging.info(f"User {liker_id} liked post {event.params['postId']}.")
-        _update_user_preferences(liker_id, post_tags, weight=1)
-        return
-
-    # Case 2: Detect an "unlike" (a user was removed)
-    unlikers = before_likers - after_likers
-    if unlikers:
-        unliker_id = unlikers.pop()
-        logging.info(f"User {unliker_id} unliked post {event.params['postId']}.")
-        _update_user_preferences(unliker_id, post_tags, weight=-1)
-        return
-
-
-@firestore_fn.on_document_created(document="users/{userId}/savedPosts/{postId}")
-def onPostSaved(event: firestore_fn.Event[firestore.DocumentSnapshot]) -> None:
-    """
-    Triggers when a user saves a post.
-    """
-    user_id = event.params["userId"]
-    post_id = event.params["postId"]
-    logging.info(f"User {user_id} saved post {post_id}.")
 
     db = firestore.client()
-    post_ref = db.collection("posts").document(post_id)
-    post_doc = post_ref.get()
 
-    if not post_doc.exists:
-        logging.error(f"Post document {post_id} not found, cannot update preferences.")
-        return
-        
-    post_tags = post_doc.to_dict().get("AutoTags", [])
-    _update_user_preferences(user_id, post_tags, weight=1)
-
-
-@firestore_fn.on_document_deleted(document="users/{userId}/savedPosts/{postId}")
-def onPostUnsaved(event: firestore_fn.Event[firestore.DocumentSnapshot]) -> None:
-    """
-    Triggers when a user unsaves a post (deletes the saved document).
-    """
+    # --- 👇 CORRECTED PARAMETER USAGE ---
+    # Get the wildcards from the trigger path
     user_id = event.params["userId"]
-    post_id = event.params["postId"]
-    logging.info(f"User {user_id} unsaved post {post_id}.")
+    plan_id = event.params["planId"]
+    
+    # Get the data from the document that was just created
+    request_data = event.data.to_dict()
 
-    db = firestore.client()
-    post_ref = db.collection("posts").document(post_id)
-    post_doc = post_ref.get()
+    # --- 👇 CORRECTED DOCUMENT REFERENCE ---
+    # This now points to the specific document that was created (e.g., /travelRequests/user123/plans/abc456)
+    doc_ref = db.collection("travelRequests").document(user_id).collection("plans").document(plan_id)
 
-    if not post_doc.exists:
-        # The post might be deleted, but we should still try to lower the score.
-        # We can get the tags from the deleted 'savedPost' document if we store them there.
-        # For now, we'll assume the original post still exists.
-        logging.warning(f"Post document {post_id} not found, cannot update preferences.")
-        return
+    logging.info(f"🚀 Processing request {plan_id} for user {user_id}.")
+    # Update the status on the document that was just created
+    doc_ref.update({"status": "processing"})
+
+    try:
+        user_prompt = request_data.get("request", "")
+        city = request_data.get("city", "")
         
-    post_tags = post_doc.to_dict().get("AutoTags", [])
-    _update_user_preferences(user_id, post_tags, weight=-1)
+        deconstruction_prompt = f"""
+        Analyze the following user request for a trip to {city}. 
+        Extract key activities and themes the user is interested in.
+        Based on the request "{user_prompt}", generate a JSON object with a key "search_keywords" 
+        which is a list of 3-5 specific, practical search terms for Google Maps Places API.
+        For example: "historical landmarks", "highly-rated local restaurants", "modern art museums".
+        Output ONLY the JSON object.
+        """
+        response = generative_model.generate_content(deconstruction_prompt)
+        structured_query = json.loads(response.text.strip().replace("```json", "").replace("```", ""))
+        search_keywords = structured_query.get("search_keywords", [])
+        logging.info(f"🔍 Deconstructed keywords: {search_keywords}")
 
+        geocode_result = gmaps_client.geocode(city)
+        if not geocode_result:
+            raise ValueError(f"Could not find coordinates for city: {city}")
+        
+        start_location = geocode_result[0]['geometry']['location']
+        candidate_place_ids = set()
+        for keyword in search_keywords:
+            places_result = gmaps_client.places(query=keyword, location=start_location, radius=10000)
+            for place in places_result.get('results', []):
+                candidate_place_ids.add(place['place_id'])
+        
+        logging.info(f"📍 Found {len(candidate_place_ids)} candidate places.")
+
+        valid_places = []
+        place_ids_for_matrix = []
+        # Limit to 9 candidates to stay within API limits and keep plans concise
+        for place_id in list(candidate_place_ids)[:9]: 
+            details = gmaps_client.place(place_id=place_id, fields=['place_id', 'name', 'vicinity', 'rating', 'opening_hours'])
+            place_data = details.get('result', {})
+            if place_data.get('rating'):
+                valid_places.append({
+                    "place_id": place_data.get('place_id'),
+                    "name": place_data.get('name'),
+                    "address": place_data.get('vicinity'),
+                    "rating": place_data.get('rating')
+                })
+                place_ids_for_matrix.append(place_data['place_id'])
+
+        logging.info(f"✅ Filtered down to {len(valid_places)} valid places.")
+        
+        if not valid_places:
+            raise ValueError("No valid places found after filtering.")
+
+        origins = [start_location]
+        destinations = [f"place_id:{pid}" for pid in place_ids_for_matrix]
+
+        matrix = gmaps_client.distance_matrix(
+            origins=origins,
+            destinations=destinations,
+            mode="driving"
+        )
+        logging.info("✅ Efficiently fetched travel times from origin to all candidate places.")
+
+        rows = matrix.get('rows', [])
+        if rows and 'elements' in rows[0]:
+            travel_times = rows[0]['elements']
+            for i, place in enumerate(valid_places):
+                if i < len(travel_times) and travel_times[i]['status'] == 'OK':
+                    place['travel_time_from_start_seconds'] = travel_times[i]['duration']['value']
+                    place['travel_time_from_start_text'] = travel_times[i]['duration']['text']
+
+        synthesis_prompt = f"""
+        You are an expert travel planner. Create a logical and enjoyable half-day itinerary in {city}.
+        Here are the available places, including the travel time from the user's starting point: {json.dumps(valid_places, indent=2)}
+        Your task is to select 3-4 places from the list that form a coherent schedule.
+        Prioritize places that are relatively close to each other.
+        Allocate reasonable time for each activity and account for travel time between the selected spots (you can estimate this based on their proximity).
+        The final output must be a JSON object representing the plan as an array of events.
+        Each event should have 'time', 'place_name', and 'activity_description'.
+        Output ONLY the JSON object.
+        """
+        final_plan_response = generative_model.generate_content(synthesis_prompt)
+        final_plan = json.loads(final_plan_response.text.strip().replace("```json", "").replace("```", ""))
+
+        # --- 👇 CORRECTED FINAL UPDATE ---
+        # Update the same document that triggered the function with the final plan.
+        doc_ref.update({
+            "status": "completed",
+            "plan": final_plan, # Save the plan into a 'plan' field
+            "updatedAt": firestore.SERVER_TIMESTAMP
+        })
+        logging.info(f"🎉 Successfully generated and saved plan for request {plan_id}.")
+
+    except Exception as e:
+        logging.error(f"❌ Error processing request {plan_id}: {e}", exc_info=True)
+        # Update the triggering document with the error status
+        doc_ref.update({"status": "error", "errorMessage": str(e)})

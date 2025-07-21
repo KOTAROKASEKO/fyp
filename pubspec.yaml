@@ -50,6 +50,10 @@ dependencies:
   firebase_storage: ^12.4.9
   timeago: ^3.7.1
   flutter_image_compress: ^2.4.0
+  flutter_facebook_auth: ^7.1.2
+  firebase_app_check: ^0.3.2+9
+  foundation: ^0.0.5
+  timeline_tile: ^2.0.0
   
 
 dev_dependencies:

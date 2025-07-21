@@ -1,4 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:fyp_proj/features/1_authentication/auth_service.dart';
 import 'package:fyp_proj/features/3_discover/view/comment_bottomsheet.dart';
 import 'package:fyp_proj/models/post_model.dart';
 import 'package:fyp_proj/features/1_authentication/userdata.dart';
@@ -201,16 +203,31 @@ class _PostCardState extends State<PostCard> {
               color: isLiked ? Colors.red : null,
               size: 28,
             ),
-            onPressed: () => viewModel.toggleLike(widget.post.id),
+            onPressed: () {
+              if(FirebaseAuth.instance.currentUser == null) {
+                showSignInModal(context);
+                return;
+              }else{
+                viewModel.toggleLike(widget.post.id);
+              }
+              
+              },
           ),
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline, size: 28),
-            onPressed: () => showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (context) => CommentBottomSheet(postId: widget.post.id),
-            ),
+            onPressed: () { 
+                if(FirebaseAuth.instance.currentUser == null) {
+                  showSignInModal(context);
+                  return;
+                }else{
+                  showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => CommentBottomSheet(postId: widget.post.id),
+                );
+              }
+            }
           ),
           IconButton(
             icon: Icon(
@@ -218,7 +235,14 @@ class _PostCardState extends State<PostCard> {
               size: 28,
               color: widget.post.isSaved ? Theme.of(context).primaryColor : null,
             ),
-            onPressed: () => viewModel.savePost(widget.post.id),
+            onPressed: () {
+              if(FirebaseAuth.instance.currentUser == null) {
+                showSignInModal(context);
+                return;
+              }else{
+              viewModel.savePost(widget.post.id);
+              }
+            },
           ),
         ],
       ),

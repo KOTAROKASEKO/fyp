@@ -69,21 +69,14 @@ android {
                 "proguard-rules.pro"
             )
         }
-        getByName("debug") {
-            // デフォルトのdebugキー使用（何もしない）
-        }
+       
     }
 }
 
 dependencies {
-    // BOM (Bill of Materials) を使ってFirebaseライブラリのバージョンを管理
     implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
-
-    // 必要なFirebaseライブラリを追加
     implementation("com.google.firebase:firebase-appcheck-debug")
     implementation("com.google.firebase:firebase-auth")
-
-    // 他に必要な依存関係があればここに追加
 }
 
 flutter {

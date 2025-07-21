@@ -132,12 +132,7 @@ class _DashboardViewState extends State<_DashboardView> {
                               100)); // Optional: allow drawer to close
                       await FirebaseAuth.instance.signOut();
                       // Navigate to login screen or root
-                      Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const AuthScreen(), // Ensure you have this screen implemented
-                          ));
+                      
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Logout failed: $e')),
@@ -183,18 +178,15 @@ class _DashboardViewState extends State<_DashboardView> {
           ),
         const SizedBox(height: 24),
 
-        // --- 2. STREAK CARD ---
         _buildStreakCard(context, viewModel),
         const SizedBox(height: 24),
 
-        // --- 3. RANKING CARD ---
         _buildRankingCard(context, viewModel),
         const SizedBox(height: 16),
       ],
     );
   }
 
-  /// NEW WIDGET: A dedicated card for streak information.
   Widget _buildStreakCard(
       BuildContext context, DashboardViewModel viewModel) {
     final textTheme = Theme.of(context).textTheme;

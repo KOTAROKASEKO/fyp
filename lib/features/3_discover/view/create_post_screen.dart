@@ -1,4 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:fyp_proj/features/1_authentication/auth_service.dart';
 import 'package:provider/provider.dart';
 import 'package:fyp_proj/features/3_discover/viewmodel/create_post_viewmodel.dart';
 import 'dart:io';
@@ -62,6 +64,9 @@ class CreatePostScreen extends StatelessWidget {
                   TextButton(
                     onPressed: viewModel.canSubmit
                         ? () async {
+                          if(FirebaseAuth.instance.currentUser == null){
+                            showSignInModal(context);
+                          }else{
                             final success = await viewModel.submitPost();
                             if (success && context.mounted) {
                               Navigator.of(context).pop();
@@ -70,6 +75,7 @@ class CreatePostScreen extends StatelessWidget {
                                 const SnackBar(content: Text('Post failed. Please try again.')),
                               );
                             }
+                          }
                           }
                         : null,
                     child: viewModel.isPosting
