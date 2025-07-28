@@ -1,5 +1,3 @@
-// lib/screens/plan_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:fyp_proj/features/4_plan/ViewModel/plan_detail_screen_viewmodel.dart';
 import 'package:fyp_proj/features/4_plan/ViewModel/plan_screen_viewmodel.dart';
@@ -17,9 +15,9 @@ class PlanScreen extends StatelessWidget {
     
     return viewModel.isLoading? 
     shimmerLoading() : 
-    viewModel.hasData?
-    _buildExistingPlansScreen(viewModel.thumbnail):
-    _buildStartCreateScreen(context);
+    viewModel.hasData
+    ?
+    _buildExistingPlansScreen(viewModel.thumbnail, context):_buildStartCreateScreen(context);
     }
 
   Widget shimmerLoading(){
@@ -105,14 +103,40 @@ class PlanScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildExistingPlansScreen(List<TravelThumbnail> travelSteps) {
+  Widget _buildExistingPlansScreen(List<TravelThumbnail> travelSteps, BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Plans'),
+      ),
       body: ListView.builder(
         itemCount: travelSteps.length,
         itemBuilder: (context, index) {
           final step = travelSteps[index];
           return _buildDestinationCard(step, context);
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const TripInputScreen(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                const begin = Offset(1.0, 0.0);
+                const end = Offset.zero;
+                const curve = Curves.ease;
+                final tween = Tween(begin: begin, end: end)
+                    .chain(CurveTween(curve: curve));
+                return SlideTransition(
+                  position: animation.drive(tween),
+                  child: child,
+                );
+              },
+            ),
+          );
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -138,6 +162,4 @@ Widget _buildDestinationCard(TravelThumbnail step, BuildContext context){ // con
       ),
     );
   }
-
 }
-
