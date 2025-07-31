@@ -5,6 +5,7 @@ import 'package:fyp_proj/features/4_plan/model/thumbnail.dart';
 import 'package:fyp_proj/features/4_plan/view/plan_detail_screen.dart';
 import 'package:fyp_proj/features/4_plan/view/plan_input.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // Make sure to add the intl package to your pubspec.yaml
 
 class PlanScreen extends StatelessWidget {
   const PlanScreen({super.key});
@@ -12,19 +13,18 @@ class PlanScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     PlanScreenViewModel viewModel = Provider.of<PlanScreenViewModel>(context);
-    
-    return viewModel.isLoading? 
-    shimmerLoading() : 
-    viewModel.hasData
-    ?
-    _buildExistingPlansScreen(viewModel.thumbnail, context):_buildStartCreateScreen(context);
-    }
 
-  Widget shimmerLoading(){
-    return Scaffold(
-      body:Center(child:CircularProgressIndicator()));
+    return viewModel.isLoading
+        ? shimmerLoading()
+        : viewModel.hasData
+            ? _buildExistingPlansScreen(viewModel.thumbnail, context)
+            : _buildStartCreateScreen(context);
   }
-  
+
+  Widget shimmerLoading() {
+    return Scaffold(body: Center(child: CircularProgressIndicator()));
+  }
+
   Widget _buildStartCreateScreen(BuildContext context) {
     return Scaffold(
       body: Container(
@@ -90,8 +90,8 @@ class PlanScreen extends StatelessWidget {
                   icon: const Icon(Icons.bolt),
                   label: const Text('Get Started'),
                   style: FilledButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 16),
                     textStyle: const TextStyle(fontSize: 18),
                   ),
                 ),
@@ -103,10 +103,11 @@ class PlanScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildExistingPlansScreen(List<TravelThumbnail> travelSteps, BuildContext context) {
+  Widget _buildExistingPlansScreen(
+      List<TravelThumbnail> travelSteps, BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Plans'),
+        title: const Text('Your Plans'),
       ),
       body: ListView.builder(
         itemCount: travelSteps.length,
@@ -141,25 +142,145 @@ class PlanScreen extends StatelessWidget {
     );
   }
 
-Widget _buildDestinationCard(TravelThumbnail step, BuildContext context){ // contextを引数で受け取る
+  Widget _buildDestinationCard(TravelThumbnail step, BuildContext context) {
+    final viewModel = Provider.of<PlanScreenViewModel>(context, listen: false);
+
+    Widget trailingWidget;
+    switch (step.status) {
+      case 'completed':
+        trailingWidget =
+            const Icon(Icons.arrow_forward_ios, color: Colors.white);
+        break;
+      case 'processing':
+      case 'pending':
+        trailingWidget = const SizedBox(
+          height: 24,
+          width: 24,
+          child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+        );
+        break;
+      case 'error':
+        trailingWidget = const Icon(Icons.error_outline, color: Colors.red);
+        break;
+      default:
+        trailingWidget = const Icon(Icons.help_outline, color: Colors.grey);
+    }
+
+    final bool isTappable = step.status == 'completed';
+
     return Card(
+      color: Colors.blueGrey,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListTile(
-        title: Text(step.city),
-        subtitle: Text('Status: ${step.status}'),
-        trailing: const Icon(Icons.arrow_forward_ios),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              // ChangeNotifierProviderでViewModelを生成し、TripDetailsを子にする
-              builder: (context) => ChangeNotifierProvider(
-                create: (_) => PlanDetailViewmodel(step.documentId), // ここでIDを渡す！
-                child: TripDetails(documentId: step.documentId),
-              ),
-            ),
+      elevation: 5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      clipBehavior: Clip
+          .antiAlias, // Clips the child (the Stack) to the rounded corners
+      child: InkWell(
+        onTap: isTappable
+            ? () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => ChangeNotifierProvider(
+                      create: (_) => PlanDetailViewmodel(step.documentId),
+                      child: TripDetails(documentId: step.documentId),
+                    ),
+                  ),
+                );
+              }
+            : () {
+                final message = step.status == 'error'
+                    ? 'There was an error generating this plan.'
+                    : 'Plan for ${step.city} is still being generated.';
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(message)),
+                );
+              },
+        onLongPress: () {
+          showDialog(
+            context: context,
+            builder: (BuildContext dialogContext) {
+              return AlertDialog(
+                title: const Text('Delete Plan'),
+                content: Text(
+                    'Are you sure you want to delete the plan for ${step.city}? This action cannot be undone.'),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text('Cancel'),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                    },
+                  ),
+                  TextButton(
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    child: const Text('Delete'),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      viewModel.deletePlan(step.documentId);
+                    },
+                  ),
+                ],
+              );
+            },
           );
         },
+        child: Stack(
+          alignment: Alignment.bottomLeft,
+          children: [
+            // Background Image
+            Container(
+              height: 150, // Give the card a fixed height
+              width: double.infinity,
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  // Fetches a random image based on the city name
+                  image: NetworkImage(
+                      'https://source.unsplash.com/800x600/?${step.city}'),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(
+                    Colors.black.withOpacity(0.5),
+                    BlendMode.darken,
+                  ),
+                ),
+              ),
+            ),
+            // Content laid over the image
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min, // Takes minimum space
+                    children: [
+                      Text(
+                        step.city,
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Created on: ${DateFormat.yMMMd().format(step.createdAt)}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                  trailingWidget,
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
 }

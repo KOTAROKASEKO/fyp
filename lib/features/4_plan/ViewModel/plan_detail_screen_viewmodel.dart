@@ -2,10 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fyp_proj/features/1_authentication/userdata.dart';
 import 'package:fyp_proj/features/4_plan/model/plan_model.dart'; // TravelStepモデルをインポート
+import 'package:fyp_proj/features/4_plan/repository/repo.dart';
 
 class PlanDetailViewmodel extends ChangeNotifier {
   final String _documentId;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final PlanRepo _repo = PlanRepo();
+
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
@@ -49,6 +52,22 @@ class PlanDetailViewmodel extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners(); // UIに変更を通知
+    }
+  }
+
+  Future<void> toggleStepCompletion(int stepIndex) async {
+    if (stepIndex < 0 || stepIndex >= _planSteps.length) return;
+
+    _planSteps[stepIndex].isCompleted = !_planSteps[stepIndex].isCompleted;
+    notifyListeners();
+
+    try {
+      await _repo.updatePlan(_documentId, _planSteps);
+    } catch (e) {
+      // If the update fails, revert the change in the UI
+      _planSteps[stepIndex].isCompleted = !_planSteps[stepIndex].isCompleted;
+      _errorMessage = "Failed to update plan. Please try again.";
+      notifyListeners();
     }
   }
 }

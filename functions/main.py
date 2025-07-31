@@ -129,17 +129,18 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
         valid_places = []
         # Limit to 9 candidates to stay within API limits
         for place_id in list(candidate_place_ids)[:9]: 
-            # --- 👇 MODIFIED: Added 'geometry' to the requested fields ---
-            details = gmaps_client.place(place_id=place_id, fields=['place_id', 'name', 'vicinity', 'rating', 'geometry'])
+            # --- 👇 MODIFIED: Added 'photos' to the requested fields ---
+            details = gmaps_client.place(place_id=place_id, fields=['place_id', 'name', 'vicinity', 'rating', 'geometry', 'photos'])
             place_data = details.get('result', {})
             if place_data.get('rating'):
                 valid_places.append({
                     "place_id": place_data.get('place_id'),
                     "name": place_data.get('name'),
                     "address": place_data.get('vicinity'),
-                    "rating": place_data.get('rating'),
-                    # --- 👇 ADDED: Storing the geometry data ---   
-                    "geometry": place_data.get('geometry', {}).get('location', {})
+                    "rating": place_data.get('rating'), 
+                    "geometry": place_data.get('geometry', {}).get('location', {}),
+                    # --- 👇 ADDED: Storing the photo data ---
+                    "photos": place_data.get('photos')
                 })
         
         logging.info(f"✅ Filtered down to {len(valid_places)} valid places with details.")
@@ -158,34 +159,44 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
         Output ONLY the JSON object.
         """
         final_plan_response = generative_model.generate_content(synthesis_prompt)
-        # The AI returns a plan with only name, time, and description
         ai_plan_data = json.loads(final_plan_response.text.strip().replace("```json", "").replace("```", ""))
         ai_plan = ai_plan_data.get("plan", [])
 
-        # --- 👇 NEW: Enrich the AI's plan with the missing data (place_id and geometry) ---
         enriched_plan = []
         for step in ai_plan:
             place_name = step.get("place_name")
-            # Find the corresponding place from our detailed list
             matching_place = next((p for p in valid_places if p["name"] == place_name), None)
             
             if matching_place:
-                # Add the missing details to the step
                 step["place_id"] = matching_place.get("place_id")
                 step["geometry"] = matching_place.get("geometry")
                 enriched_plan.append(step)
             else:
-                # If the AI hallucinates a place not in our list, we log it but might skip it
                 logging.warning(f"AI generated a place '{place_name}' not found in the valid places list. Skipping.")
 
         if not enriched_plan:
             raise ValueError("AI failed to generate a valid plan from the provided places.")
 
-        doc_ref.update({
+        # --- 👇 NEW: Get a photo reference for the thumbnail ---
+        thumbnail_photo_reference = None
+        if enriched_plan:
+            first_step_place_id = enriched_plan[0].get("place_id")
+            first_place_details = next((p for p in valid_places if p["place_id"] == first_step_place_id), None)
+            
+            if first_place_details and 'photos' in first_place_details and first_place_details['photos']:
+                thumbnail_photo_reference = first_place_details['photos'][0].get('photo_reference')
+                logging.info(f"📸 Found photo reference for thumbnail.")
+
+        # --- 👇 MODIFIED: Added thumbnail reference to the update data ---
+        update_data = {
             "status": "completed",
-            "plan": enriched_plan, # Save the enriched plan
+            "plan": enriched_plan,
             "updatedAt": firestore.SERVER_TIMESTAMP
-        })
+        }
+        if thumbnail_photo_reference:
+            update_data["thumbnail_photo_reference"] = thumbnail_photo_reference
+
+        doc_ref.update(update_data)
         logging.info(f"🎉 Successfully generated and saved enriched plan for request {plan_id}.")
 
     except Exception as e:

@@ -38,7 +38,7 @@ class _TripInputScreenState extends State<TripInputScreen> {
     'Paris',
     'London',
     'New York',
-  ];
+  ];  
 
   @override
   void dispose() {
@@ -235,5 +235,4 @@ class _TripInputScreenState extends State<TripInputScreen> {
       ),
     );
   }
-
 }

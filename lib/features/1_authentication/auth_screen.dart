@@ -86,7 +86,8 @@ class _SignInModalState extends State<SignInModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SafeArea(
+      child:Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -118,6 +119,6 @@ class _SignInModalState extends State<SignInModal> {
           const SizedBox(height: 10),
         ],
       ),
-    );
+    ));
   }
 }

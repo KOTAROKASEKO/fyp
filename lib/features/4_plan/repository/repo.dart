@@ -48,4 +48,33 @@ FirebaseFirestore _firestore = FirebaseFirestore.instance;
       throw Exception("Error fetching plan: $error");
     }
   }
+
+  Future<void> updatePlan(String documentId, List<TravelStep> planSteps) async {
+    try {
+      final planData = planSteps.map((step) => step.toMap()).toList();
+      await _firestore
+          .collection('travelRequests')
+          .doc(userData.userId)
+          .collection('plans')
+          .doc(documentId)
+          .update({'plan': planData});
+    } catch (e) {
+      print("Error updating plan: $e");
+      throw Exception("Error updating plan");
+    }
+  }
+    Future<void> deletePlan(String documentId) async {
+    try {
+      await _firestore
+          .collection('travelRequests')
+          .doc(userData.userId)
+          .collection('plans')
+          .doc(documentId)
+          .delete();
+    } catch (e) {
+      print("Error deleting plan: $e");
+      // Re-throw the exception to be handled by the ViewModel
+      throw Exception("Error deleting plan");
+    }
+  }
 }

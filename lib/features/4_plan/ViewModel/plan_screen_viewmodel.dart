@@ -20,6 +20,27 @@ class PlanScreenViewModel extends ChangeNotifier{
     hasTravelPlans();
   }
 
+  // In lib/features/4_plan/ViewModel/plan_screen_viewmodel.dart
+
+  Future<void> deletePlan(String documentId) async {
+    try {
+      await _repo.deletePlan(documentId);
+      
+      // Remove the plan from the local list for an immediate UI update.
+      _thumbnail.removeWhere((plan) => plan.documentId == documentId);
+      
+      // If the list becomes empty after deletion, update the hasData flag.
+      if (_thumbnail.isEmpty) {
+        _hasData = false;
+      }
+
+      notifyListeners();
+    } catch (e) {
+      print("Failed to delete plan from ViewModel: $e");
+      // Optionally, implement error-handling state to show a SnackBar.
+    }
+  }
+
   
   Future<void> hasTravelPlans() async {
     _thumbnail = await _repo.hasTravelPlans();

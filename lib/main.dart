@@ -6,6 +6,7 @@ import 'package:fyp_proj/features/1_authentication/userdata.dart';
 import 'package:fyp_proj/features/2_daily_quiz/DATABASE/streak_data.dart';
 import 'package:fyp_proj/features/4_plan/ViewModel/generating_viewModel.dart';
 import 'package:fyp_proj/features/4_plan/ViewModel/plan_screen_viewmodel.dart';
+import 'package:fyp_proj/features/4_plan/model/quiz_generation_model.dart';
 import 'package:fyp_proj/features/5_profile/model/user_profile_model.dart';
 import 'package:fyp_proj/features/app/app_main_screen.dart';
 import 'package:fyp_proj/firebase_options.dart';
@@ -13,9 +14,11 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -45,9 +48,15 @@ Future<void> initHive() async {
   if (!Hive.isAdapterRegistered(UserProfileAdapter().typeId)) {
     Hive.registerAdapter(UserProfileAdapter());
   }
+  if (!Hive.isAdapterRegistered(GeneratedQuizAdapter().typeId)) {
+    Hive.registerAdapter(GeneratedQuizAdapter());
+  }
+  
   // Open all boxes
+  await Hive.openBox<GeneratedQuiz>('quizCache');
   await Hive.openBox<StreakData>('streakBox');
   await Hive.openBox<UserProfile>('userProfileBox');
+  await Hive.openBox<GeneratedQuiz>('quizCache');
 }
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

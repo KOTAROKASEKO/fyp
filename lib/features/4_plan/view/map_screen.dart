@@ -53,7 +53,6 @@ class _MapScreenState extends State<MapScreen> {
       ..loadRequest(mapUri); // 組み立てたURLを読み込む
   }
 
-  // --- これが修正された核心部分です ---
   Uri _buildMapUri() {
     final origin = widget.origin;
     final destination = widget.destination;
@@ -72,7 +71,6 @@ class _MapScreenState extends State<MapScreen> {
     } else {
       // 目的地のみの場合：場所検索URL
       final query = Uri.encodeComponent(destination.placeName);
-      final destinationCoords = '${destination.location.latitude},${destination.location.longitude}';
       // 正しいウェブサイトのURL形式を使用
       return Uri.parse(
         'https://www.google.com/maps/search/?api=1&query=$query&query_place_id=${destination.placeId}'
@@ -100,5 +98,4 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  
 }

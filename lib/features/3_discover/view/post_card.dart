@@ -259,8 +259,6 @@ class _PostCardState extends State<PostCard> {
             '${widget.post.likeCount} likes',
             style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
-          // The caption is only shown here if there are images.
-          // For text-only posts, it's already displayed in _buildMainContent.
           if (hasImages && hasCaption) ...[
             const SizedBox(height: 4),
             RichText(
@@ -284,7 +282,7 @@ class _PostCardState extends State<PostCard> {
 
           if (widget.post.manualTags.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Wrap(
+          Wrap( 
             spacing: 6.0,
             runSpacing: 2.0,
             children: widget.post.manualTags.map((tag) => Chip(

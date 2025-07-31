@@ -6,6 +6,7 @@ class TravelStep {
   final String activityDescription;
   final String placeId;
   final GeoPoint location; // 座標をGeoPointとして保持
+  bool isCompleted; // To track completion status
 
   TravelStep({
     required this.time,
@@ -13,6 +14,7 @@ class TravelStep {
     required this.activityDescription,
     required this.placeId,
     required this.location,
+    this.isCompleted = false, // Default to not completed
   });
 
   // FirestoreのMapからTravelStepオブジェクトを生成するファクトリコンストラクタ
@@ -30,6 +32,22 @@ class TravelStep {
       location: (geo != null && geo['lat'] != null && geo['lng'] != null)
           ? GeoPoint(geo['lat'], geo['lng'])
           : const GeoPoint(35.681236, 139.767125),
+      isCompleted: map['isCompleted'] ?? false,
     );
+  }
+  
+  // Method to convert TravelStep to a Map for Firestore
+  Map<String, dynamic> toMap() {
+    return {
+      'time': time,
+      'place_name': placeName,
+      'activity_description': activityDescription,
+      'place_id': placeId,
+      'geometry': {
+        'lat': location.latitude,
+        'lng': location.longitude,
+      },
+      'isCompleted': isCompleted,
+    };
   }
 }
