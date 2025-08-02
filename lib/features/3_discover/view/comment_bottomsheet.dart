@@ -24,7 +24,7 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
         text: _commentController.text.trim(),
       );
       _commentController.clear();
-      FocusScope.of(context).unfocus(); // Dismiss keyboard
+      FocusScope.of(context).unfocus();
     }
   }
 
@@ -34,10 +34,11 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
     return DraggableScrollableSheet(
       initialChildSize: 0.7, // Start at 70% of the screen
       minChildSize: 0.4, // Can be dragged down to 40%
-      maxChildSize: 0.9, // Can be dragged up to 90%
+      maxChildSize: 0.9,
       expand: false,
       builder: (_, scrollController) {
-        return Container(
+        return SafeArea(
+          child:Container(
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.only(
@@ -118,8 +119,8 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
               ),
             ],
           ),
-        );
-      },
+        )
+      );},
     );
   }
 }

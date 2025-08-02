@@ -19,26 +19,20 @@ class PostService {
   Future<PaginatedPosts> getPosts({
     required SortOrder sortOrder,
     DocumentSnapshot? lastDocument,
-    int limit = 10, // 1度に取得する投稿数
+    int limit = 10,
   }) async {
-    // ベースとなるクエリを作成
     Query query = _firestore.collection(_collectionPath);
 
-    // sortOrderに基づいてクエリを構築
     if (sortOrder == SortOrder.byPopularity) {
-      // 重要: このクエリにはFirestoreの複合インデックスが必要です
       query = query.orderBy('likeCount', descending: true);
     } else {
-      // デフォルトは日付順
       query = query.orderBy('timestamp', descending: true);
     }
 
-    // ページネーション: lastDocumentが指定されていれば、その次から取得を開始
     if (lastDocument != null) {
       query = query.startAfterDocument(lastDocument);
     }
 
-    // 取得件数を制限
     query = query.limit(limit);
 
     final snapshot = await query.get();
@@ -47,7 +41,6 @@ class PostService {
         .map((doc) => Post.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>))
         .toList();
     
-    // 最後のドキュメントを取得（次回のクエリのため）
     final DocumentSnapshot? newLastDocument = snapshot.docs.isNotEmpty ? snapshot.docs.last : null;
 
     return PaginatedPosts(posts: posts, lastDocument: newLastDocument);
@@ -65,15 +58,10 @@ class PostService {
 
       final savedPostIds = savedPostsSnapshot.docs.map((doc) => doc.id).toList();
 
-      // 2. Fetch the actual post documents for those IDs.
-      // Firestore's 'in' query is efficient for up to 10 items.
-      // For simplicity, we'll fetch all at once. For >10, you might need batching.
       final postsSnapshot = await _postsCollection
           .where(FieldPath.documentId, whereIn: savedPostIds)
           .get();
 
-      // Convert the documents to Post objects.
-      // All posts here are considered "saved".
       final savedPosts = postsSnapshot.docs
           .map((doc) => Post.fromFirestore(
               doc as DocumentSnapshot<Map<String, dynamic>>,
@@ -94,7 +82,7 @@ class PostService {
   }) async {
     try {
       final user = _auth.currentUser;
-      if (user == null) throw Exception("User not logged in");
+      if (user == null) throw Exception("User not logged in");  
 
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final username = userDoc.data()?['username'] ?? 'Anonymous';
@@ -276,5 +264,19 @@ class PostService {
     }
   }
 
+  Stream<List<Comment>> getLatestComment(String postId) {
+    return _postsCollection
+        .doc(postId)
+        .collection('comments')
+        .orderBy('timestamp', descending: true)
+        .limit(1) // Limit the result to only one document
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => Comment.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>))
+          .toList();
+    });
+  }
 
+  
 }

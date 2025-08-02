@@ -68,14 +68,17 @@ class QuizGenerationViewModel extends ChangeNotifier {
     }
   }
 
-  void submitAnswer() {
+  bool submitAnswer() { // <-- Change return type to bool
     if (_selectedOptionIndex != null && !_isAnswered) {
       _isAnswered = true;
-      if (_selectedOptionIndex == _quiz[_currentQuestionIndex].correctOptionIndex) {
+      final bool isCorrect = _selectedOptionIndex == _quiz[_currentQuestionIndex].correctOptionIndex;
+      if (isCorrect) {
         _score++;
       }
       notifyListeners();
+      return isCorrect;
     }
+    return false;
   }
 
   void nextQuestion() {

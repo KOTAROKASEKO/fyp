@@ -9,6 +9,7 @@ import 'package:fyp_proj/models/post_model.dart';
 class DiscoverViewModel extends ChangeNotifier {
   final PostService _postService = PostService();
 
+  List<Post> _allFetchedPosts = [];
   List<Post> _posts = [];
   SortOrder _sortOrder = SortOrder.byDate;
   DocumentSnapshot? _lastDocument;
@@ -21,9 +22,28 @@ class DiscoverViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
 
+  String _searchQuery = '';
+
   DiscoverViewModel() {
     fetchInitialPosts();
   }
+
+  void _applyFilter() {
+    if (_searchQuery.isEmpty) {
+      _posts = _allFetchedPosts;
+    } else {
+      final query = _searchQuery.toLowerCase();
+      _posts = _allFetchedPosts.where((post) {
+        final captionMatch = post.caption.toLowerCase().contains(query);
+        // Use the new allTags getter to search in both manual and auto tags
+        final tagMatch = post.allTags.any((tag) => tag.toLowerCase().contains(query));
+        return captionMatch || tagMatch;
+      }).toList();
+    }
+    notifyListeners();
+  }
+
+
 
   Future<void> fetchInitialPosts() async {
     _isLoading = true;
@@ -33,11 +53,12 @@ class DiscoverViewModel extends ChangeNotifier {
 
     try {
       final result = await _postService.getPosts(sortOrder: _sortOrder);
-      _posts = result.posts;
+      _allFetchedPosts = result.posts;
       _lastDocument = result.lastDocument;
       if (result.posts.length < 10) {
         _hasMorePosts = false;
       }
+      _applyFilter(); // Apply current search query to the new list
     } catch (e) {
       print("Error fetching initial posts: $e");
     } finally {
@@ -45,7 +66,8 @@ class DiscoverViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
-
+  // --- MODIFIED: fetchMorePosts to handle filtering ---
+  
   Future<void> fetchMorePosts() async {
     if (_isLoadingMore || !_hasMorePosts) return;
 
@@ -57,11 +79,12 @@ class DiscoverViewModel extends ChangeNotifier {
         sortOrder: _sortOrder,
         lastDocument: _lastDocument,
       );
-      _posts.addAll(result.posts);
+      _allFetchedPosts.addAll(result.posts);
       _lastDocument = result.lastDocument;
       if (result.posts.length < 10) {
         _hasMorePosts = false;
       }
+      _applyFilter(); // Apply current search query to the updated list
     } catch (e) {
       print("Error fetching more posts: $e");
     } finally {
@@ -70,11 +93,17 @@ class DiscoverViewModel extends ChangeNotifier {
     }
   }
 
+  // --- NEW: Methods to update filters and trigger refetch ---
+    void applySearchQuery(String query) {
+    _searchQuery = query;
+    // No need to fetch from network again, just apply filter locally
+    _applyFilter();
+  }
+
   Future<void> setSortOrder(SortOrder newOrder) async {
     if (_sortOrder == newOrder) return;
-
     _sortOrder = newOrder;
-    fetchInitialPosts();
+    fetchInitialPosts(); // Refetch with the new sort order
   }
 
   // --- NEW METHODS ---

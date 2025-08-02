@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fyp_proj/features/4_plan/ViewModel/generating_viewModel.dart';
 import 'package:provider/provider.dart';
 import 'generating_screen.dart';
+import 'package:google_places_flutter/google_places_flutter.dart';
 
 // Budget enum remains the same
 enum Budget { low, middle, high }
@@ -23,22 +24,6 @@ class _TripInputScreenState extends State<TripInputScreen> {
   double _historyPreference = 50.0;
   double _artsPreference = 50.0;
   double _foodPreference = 50.0;
-
-  // --- NEW: A static list of cities for the autocomplete feature ---
-  // In a real app, you might fetch this from an API
-  static const List<String> _cities = <String>[
-    'Kuala Lumpur',
-    'Kagoshima',
-    'Kyoto',
-    'Kansas City',
-    'Kolkata',
-    'Tokyo',
-    'Osaka',
-    'Singapore',
-    'Paris',
-    'London',
-    'New York',
-  ];  
 
   @override
   void dispose() {
@@ -129,37 +114,25 @@ class _TripInputScreenState extends State<TripInputScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // --- UPDATED: City Input now uses Autocomplete ---
           Text('City', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          Autocomplete<String>(
-            optionsBuilder: (TextEditingValue textEditingValue) {
-              if (textEditingValue.text == '') {
-                return const Iterable<String>.empty();
-              }
-              return _cities.where((String option) {
-                return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
-              });
-            },
-            onSelected: (String selection) {
-              setState(() {
-                _selectedCity = selection;
-              });
-              debugPrint('You just selected $selection');
-            },
-            fieldViewBuilder: (BuildContext context, TextEditingController fieldController, FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
-              // We use our own controller here to manage its lifecycle
-              // This is where the text field is built
-              return TextFormField(
-                controller: fieldController,
-                focusNode: fieldFocusNode,
-                decoration: const InputDecoration(
-                  hintText: 'e.g., Kuala Lumpur',
-                  prefixIcon: Icon(Icons.location_city),
-                ),
-              );
-            },
-          ),
+          GooglePlaceAutoCompleteTextField(
+                textEditingController: _cityTextController,
+                googleAPIKey: "AIzaSyAtQ8bnvTdQb24Yyb9ZbTP24fFV6h34hS8",
+                debounceTime: 800,
+                countries: const ["my", "jp", "sg", "us", "fr", "gb", "in"],
+                isLatLngRequired: true,
+                getPlaceDetailWithLatLng: (prediction) {
+                  setState(() {
+                    _selectedCity = prediction.description;
+                  });
+                },
+                itemClick: (prediction) {
+                  _cityTextController.text = prediction.description!;
+                  _cityTextController.selection = TextSelection.fromPosition(
+                      TextPosition(offset: prediction.description!.length));
+                }),
+          
           const SizedBox(height: 24),
 
           // Budget selection remains the same

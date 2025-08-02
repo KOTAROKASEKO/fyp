@@ -1,11 +1,47 @@
+// 4_plan/view/quiz_generation_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fyp_proj/features/4_plan/viewmodel/quiz_generation_viewmodel.dart';
+import 'package:rive/rive.dart';
 
 class QuizGenerationScreen extends StatelessWidget {
   final String destination;
 
   const QuizGenerationScreen({super.key, required this.destination});
+
+  // UPDATED: Method to show the animation dialog safely
+  void _showCorrectAnswerAnimation(BuildContext context) {
+    // Schedule the dialog to show after the current build is complete
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showDialog(
+        context: context,
+        barrierColor: Colors.black.withOpacity(0.3),
+        builder: (BuildContext dialogContext) {
+          // The dialog will now have its own context
+          return const Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: SizedBox(
+              height: 250,
+              width: 250,
+              child: RiveAnimation.asset(
+                'assets/thumbsUp.riv',
+                stateMachines: ['State Machine 1'],
+                fit: BoxFit.contain,
+              ),
+            ),
+          );
+        },
+      );
+
+      // Close the dialog automatically after 2 seconds
+      Future.delayed(const Duration(seconds: 2), () {
+        // Use the root navigator to pop the dialog
+        Navigator.of(context, rootNavigator: true).pop();
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,9 +96,8 @@ class QuizGenerationScreen extends StatelessWidget {
     final currentQuiz = viewModel.quiz[viewModel.currentQuestionIndex];
 
     return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: ListView(
         children: [
           Text(
             'Question ${viewModel.currentQuestionIndex + 1}/${viewModel.quiz.length}',
@@ -106,7 +141,10 @@ class QuizGenerationScreen extends StatelessWidget {
                     if (viewModel.isAnswered) {
                       viewModel.nextQuestion();
                     } else {
-                      viewModel.submitAnswer();
+                      final isCorrect = viewModel.submitAnswer();
+                      if (isCorrect) {
+                        _showCorrectAnswerAnimation(context);
+                      }
                     }
                   }
                 : null,

@@ -55,6 +55,10 @@ dependencies:
   webview_flutter: ^4.7.0
   url_launcher: ^6.3.2
   flutter_dotenv: ^5.2.1
+  google_places_flutter: ^2.1.0
+  shimmer: ^3.0.0
+  lottie: ^3.3.1
+  google_fonts: ^6.3.0
   # maps_flutter: ^1.0.0
   # google_maps_flutter: ^2.12.3
   # dio: ^5.8.0+1

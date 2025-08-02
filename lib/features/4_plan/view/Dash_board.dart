@@ -5,7 +5,8 @@ import 'package:fyp_proj/features/4_plan/model/thumbnail.dart';
 import 'package:fyp_proj/features/4_plan/view/plan_detail_screen.dart';
 import 'package:fyp_proj/features/4_plan/view/plan_input.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // Make sure to add the intl package to your pubspec.yaml
+import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart'; // Import the shimmer package
 
 class PlanScreen extends StatelessWidget {
   const PlanScreen({super.key});
@@ -15,14 +16,39 @@ class PlanScreen extends StatelessWidget {
     PlanScreenViewModel viewModel = Provider.of<PlanScreenViewModel>(context);
 
     return viewModel.isLoading
-        ? shimmerLoading()
+        ? _buildShimmerLoading(context) // Use the new shimmer loading screen
         : viewModel.hasData
             ? _buildExistingPlansScreen(viewModel.thumbnail, context)
             : _buildStartCreateScreen(context);
   }
 
-  Widget shimmerLoading() {
-    return Scaffold(body: Center(child: CircularProgressIndicator()));
+  // This is the new shimmer loading widget for the planning screen
+  Widget _buildShimmerLoading(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Your Plans'),
+      ),
+      body: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: ListView.builder(
+          itemCount: 5, // Display 5 shimmering placeholder cards
+          itemBuilder: (context, index) {
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              elevation: 5,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              clipBehavior: Clip.antiAlias,
+              child: Container(
+                height: 150,
+                width: double.infinity,
+                color: Colors.white, // The base color of the shimmer
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   Widget _buildStartCreateScreen(BuildContext context) {
