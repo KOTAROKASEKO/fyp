@@ -3,7 +3,6 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:fyp_proj/features/1_authentication/auth_screen.dart';
 import 'package:fyp_proj/features/1_authentication/userdata.dart';
 import 'package:provider/provider.dart';
 import 'package:rive/rive.dart' hide Image;

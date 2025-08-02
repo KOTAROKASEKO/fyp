@@ -206,7 +206,7 @@ class _MyPostsGrid extends StatelessWidget {
         itemBuilder: (context, index) {
           final Post post = posts[index];
           return Image.network(
-            post.imageUrls!.first,
+            post.imageUrls.first,
             fit: BoxFit.cover,
             loadingBuilder: (context, child, progress) {
               return progress == null
