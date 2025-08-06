@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fyp_proj/features/5_profile/model/user_profile_model.dart';
+import 'package:fyp_proj/features/3_discover/model/user_profile_model.dart';
 import 'package:fyp_proj/models/post_model.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 

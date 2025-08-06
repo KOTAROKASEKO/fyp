@@ -10,10 +10,7 @@ import 'package:fyp_proj/features/2_daily_quiz/viewmodel/viewmodel_dashboard.dar
 import 'package:fyp_proj/features/2_daily_quiz/DATABASE/DB_quiz.dart';
 import 'package:fyp_proj/models/quiz_model.dart';
 
-// The new screen that will be a tab in the main navigation
 class DailyQuizScreen extends StatefulWidget {
-  // This screen will be used as a tab in the main navigation
-  // It will keep its state when switching tabs
   @override
   State<DailyQuizScreen> createState() => _DailyQuizScreenState();
 }
@@ -55,7 +52,6 @@ class _DashboardViewState extends State<_DashboardView> {
       _animationSubscription = viewModel.animationTrigger.listen((isCorrect) {
         _showStreakAnimationDialog(isCorrect);
       });
-      // Initialize the ViewModel which loads the quiz and ranking
       viewModel.initializeDashboard();
     });
   }

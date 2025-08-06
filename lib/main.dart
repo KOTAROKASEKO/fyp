@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +9,7 @@ import 'package:fyp_proj/features/2_daily_quiz/DATABASE/streak_data.dart';
 import 'package:fyp_proj/features/4_plan/ViewModel/generating_viewModel.dart';
 import 'package:fyp_proj/features/4_plan/ViewModel/plan_screen_viewmodel.dart';
 import 'package:fyp_proj/features/4_plan/model/quiz_generation_model.dart';
-import 'package:fyp_proj/features/5_profile/model/user_profile_model.dart';
+import 'package:fyp_proj/features/3_discover/model/user_profile_model.dart';
 import 'package:fyp_proj/features/app/app_main_screen.dart';
 import 'package:fyp_proj/firebase_options.dart';
 import 'package:hive/hive.dart';
@@ -17,7 +18,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:rive/rive.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   RiveFile.initialize();
@@ -29,6 +30,7 @@ void main() async {
     androidProvider: AndroidProvider.playIntegrity,
   );
   await initHive();
+  await _initFcm();
   runApp(
     MultiProvider(
       providers: [
@@ -40,6 +42,29 @@ void main() async {
   );
 }
 
+
+Future<void> _initFcm() async {
+  final messaging = FirebaseMessaging.instance;
+
+  // Request permission for iOS and Android 13+
+  await messaging.requestPermission(
+    alert: true,
+    announcement: false,
+    badge: true,
+    carPlay: false,
+    criticalAlert: false,
+    provisional: false,
+    sound: true,
+  );
+  // Get FCM token and store it in Hive box named 'profile'
+  final fcmToken = await messaging.getToken();
+  if (fcmToken != null) {
+    print('FCM Token: $fcmToken');
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('fcm', fcmToken);
+  }
+}
 
 
 Future<void> initHive() async {
@@ -55,12 +80,12 @@ Future<void> initHive() async {
     Hive.registerAdapter(GeneratedQuizAdapter());
   }
   
-  // Open all boxes
   await Hive.openBox<GeneratedQuiz>('quizCache');
   await Hive.openBox<StreakData>('streakBox');
   await Hive.openBox<UserProfile>('userProfileBox');
   await Hive.openBox<GeneratedQuiz>('quizCache');
 }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -68,8 +93,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child:MaterialApp(
-      title: 'Voyage AI', 
-      theme: _buildTheme(context), // Use the new theme builder
+        debugShowCheckedModeBanner: false,
+      title: 'Voyage AI',
+      theme: _buildTheme(context),
       home: StreamBuilder<User?>( 
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {

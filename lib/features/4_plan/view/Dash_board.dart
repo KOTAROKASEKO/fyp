@@ -6,22 +6,42 @@ import 'package:fyp_proj/features/4_plan/view/plan_detail_screen.dart';
 import 'package:fyp_proj/features/4_plan/view/plan_input.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:shimmer/shimmer.dart'; // Import the shimmer package
+import 'package:shimmer/shimmer.dart';
 
 class PlanScreen extends StatelessWidget {
   const PlanScreen({super.key});
 
-  @override
+    @override
   Widget build(BuildContext context) {
-    PlanScreenViewModel viewModel = Provider.of<PlanScreenViewModel>(context);
+    final viewModel = Provider.of<PlanScreenViewModel>(context, listen: false);
 
-    return viewModel.isLoading
-        ? _buildShimmerLoading(context) // Use the new shimmer loading screen
-        : viewModel.hasData
-            ? _buildExistingPlansScreen(viewModel.thumbnail, context)
-            : _buildStartCreateScreen(context);
+    return StreamBuilder<List<TravelThumbnail>>(
+      // Use the stream from the ViewModel
+      stream: viewModel.travelPlansStream,
+      builder: (context, snapshot) {
+        // While waiting for the first data, show a loading shimmer
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildShimmerLoading(context);
+        }
+
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: Text('Error: ${snapshot.error}'),
+            ),
+          );
+        }
+
+        final plans = snapshot.data;
+        if (plans == null || plans.isEmpty) {
+          return _buildStartCreateScreen(context);
+        }
+
+        // If there are plans, display them
+        return _buildExistingPlansScreen(plans, context);
+      },
+    );
   }
-
   // This is the new shimmer loading widget for the planning screen
   Widget _buildShimmerLoading(BuildContext context) {
     return Scaffold(
@@ -73,7 +93,9 @@ class PlanScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const Icon(Icons.auto_awesome,
-                    size: 64, color: Colors.white),
+                    size: 64,
+                    color: Colors.white
+                    ),
                 const SizedBox(height: 24),
                 const Text(
                   'Craft Your\nPerfect Journey',
@@ -129,8 +151,7 @@ class PlanScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildExistingPlansScreen(
-      List<TravelThumbnail> travelSteps, BuildContext context) {
+  Widget _buildExistingPlansScreen(List<TravelThumbnail> travelSteps, BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Your Plans'),
@@ -195,14 +216,13 @@ class PlanScreen extends StatelessWidget {
     }
 
     final bool isTappable = step.status == 'completed';
-
     return Card(
       color: Colors.blueGrey,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       clipBehavior: Clip
-          .antiAlias, // Clips the child (the Stack) to the rounded corners
+          .antiAlias,
       child: InkWell(
         onTap: isTappable
             ? () {
@@ -259,16 +279,7 @@ class PlanScreen extends StatelessWidget {
               height: 150, // Give the card a fixed height
               width: double.infinity,
               decoration: BoxDecoration(
-                image: DecorationImage(
-                  // Fetches a random image based on the city name
-                  image: NetworkImage(
-                      'https://source.unsplash.com/800x600/?${step.city}'),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    Colors.black.withOpacity(0.5),
-                    BlendMode.darken,
-                  ),
-                ),
+                
               ),
             ),
             // Content laid over the image
@@ -277,27 +288,30 @@ class PlanScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min, // Takes minimum space
-                    children: [
-                      Text(
-                        step.city,
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min, // Takes minimum space
+                      children: [
+                        Text(
+                          overflow: TextOverflow.ellipsis,
+                          step.city,
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Created on: ${DateFormat.yMMMd().format(step.createdAt)}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
+                        const SizedBox(height: 4),
+                        Text(
+                          'Created on: ${DateFormat.yMMMd().format(step.createdAt)}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   trailingWidget,
                 ],
@@ -308,5 +322,4 @@ class PlanScreen extends StatelessWidget {
       ),
     );
   }
-
 }

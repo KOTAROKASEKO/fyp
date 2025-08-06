@@ -10,36 +10,42 @@ class QuizGenerationScreen extends StatelessWidget {
 
   const QuizGenerationScreen({super.key, required this.destination});
 
-  // UPDATED: Method to show the animation dialog safely
-  void _showCorrectAnswerAnimation(BuildContext context) {
-    // Schedule the dialog to show after the current build is complete
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      showDialog(
-        context: context,
-        barrierColor: Colors.black.withOpacity(0.3),
-        builder: (BuildContext dialogContext) {
-          // The dialog will now have its own context
-          return const Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: SizedBox(
-              height: 250,
-              width: 250,
-              child: RiveAnimation.asset(
-                'assets/thumbsUp.riv',
-                stateMachines: ['State Machine 1'],
-                fit: BoxFit.contain,
-              ),
-            ),
-          );
-        },
-      );
+  void _showAnswerAnimation(BuildContext context, bool isCorrect) {
+    void onRiveInit(Artboard artboard) {
+      final controller =
+          StateMachineController.fromArtboard(artboard, 'State Machine 1');
+      if (controller != null) {
+        artboard.addController(controller);
+        final isCorrectInput = controller.findInput<bool>('isCorrect');
+        isCorrectInput?.value = isCorrect;
+      }
+    }
 
-      // Close the dialog automatically after 2 seconds
-      Future.delayed(const Duration(seconds: 2), () {
-        // Use the root navigator to pop the dialog
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: SizedBox(
+            height: 250,
+            width: 250,
+            child: RiveAnimation.asset(
+              'assets/answerReaction.riv', // Your Rive file containing both animations
+              onInit: onRiveInit,    // Use the onInit callback to control the state
+              fit: BoxFit.contain,
+            ),
+          ),
+        );
+      },
+    );
+
+    // Close the dialog automatically after 2 seconds.
+    Future.delayed(const Duration(seconds: 2), () {
+      if (Navigator.of(context, rootNavigator: true).canPop()) {
         Navigator.of(context, rootNavigator: true).pop();
-      });
+      }
     });
   }
 
@@ -112,14 +118,13 @@ class QuizGenerationScreen extends StatelessWidget {
           ...List.generate(currentQuiz.options.length, (index) {
             return _buildOption(context, viewModel, index);
           }),
-          const Spacer(),
+          const Spacer(), // Pushes the following widgets to the bottom
           if (viewModel.isAnswered)
             Card(
               color: Colors.lightBlue.shade50,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Explanation',
@@ -142,9 +147,8 @@ class QuizGenerationScreen extends StatelessWidget {
                       viewModel.nextQuestion();
                     } else {
                       final isCorrect = viewModel.submitAnswer();
-                      if (isCorrect) {
-                        _showCorrectAnswerAnimation(context);
-                      }
+                      // --- MODIFIED: Call the new animation function ---
+                      _showAnswerAnimation(context, isCorrect);
                     }
                   }
                 : null,
@@ -184,7 +188,8 @@ class QuizGenerationScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuizResult(BuildContext context, QuizGenerationViewModel viewModel) {
+  Widget _buildQuizResult(
+      BuildContext context, QuizGenerationViewModel viewModel) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -207,5 +212,4 @@ class QuizGenerationScreen extends StatelessWidget {
       ),
     );
   }
-
 }

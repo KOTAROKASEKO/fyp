@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:fyp_proj/features/3_discover/view/saved_posts_tab.dart';
 import 'package:fyp_proj/features/3_discover/viewmodel/discover_viewmodel.dart';
-import 'package:fyp_proj/features/5_profile/view/saved_posts_tab.dart';
-import 'package:fyp_proj/features/5_profile/viremodel/profile_viewmodel.dart';
+import 'package:fyp_proj/features/3_discover/viewmodel/profile_viewmodel.dart';
 import 'package:fyp_proj/models/post_model.dart';
 import 'package:provider/provider.dart';
 

@@ -1,10 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:fyp_proj/features/4_plan/ViewModel/generating_viewModel.dart';
+import 'package:google_places_flutter/model/prediction.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // Import package
 import 'generating_screen.dart';
 import 'package:google_places_flutter/google_places_flutter.dart';
 
-// Budget enum remains the same
 enum Budget { low, middle, high }
 
 class TripInputScreen extends StatefulWidget {
@@ -15,11 +18,11 @@ class TripInputScreen extends StatefulWidget {
 }
 
 class _TripInputScreenState extends State<TripInputScreen> {
-  // Controller for the Autocomplete text field
   final TextEditingController _cityTextController = TextEditingController();
-  
-  // State variables for the new widgets
-  String? _selectedCity; // To store the final selected city
+  final String _placesApiKey =
+      dotenv.env['PLACES_API_KEY'] ?? 'API_KEY_NOT_FOUND';
+
+  String? _selectedCity;
   Set<Budget> _selectedBudget = {Budget.middle};
   double _historyPreference = 50.0;
   double _artsPreference = 50.0;
@@ -27,13 +30,11 @@ class _TripInputScreenState extends State<TripInputScreen> {
 
   @override
   void dispose() {
-    // Dispose the new controller as well
     _cityTextController.dispose();
     super.dispose();
   }
 
-  void _navigateToGeneratingScreen() {
-    // --- UPDATED: Validation logic ---
+  void _navigateToGeneratingScreen() async {
     if (_selectedCity == null || _selectedCity!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -44,28 +45,42 @@ class _TripInputScreenState extends State<TripInputScreen> {
       return;
     }
 
-    // --- UPDATED: Format the preferences from sliders into a string ---
+    // Get the FCM token
+    String? fcmToken = await FirebaseMessaging.instance.getToken();
+
+    if (fcmToken == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not register for notifications. Please try again.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final request =
         'I want a trip with a focus on: History (${_historyPreference.round()}), '
         'Arts (${_artsPreference.round()}), and Food (${_foodPreference.round()}).';
 
-    // Navigate with the new data structure
+    if (!mounted) return;
+
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ChangeNotifierProvider(
-          create: (context) => GeneratingViewModel(),
-          child: GeneratingScreen(
-            city: _selectedCity!, // Use the state variable
-            budget: _selectedBudget.first.name,
-            request: request, // Use the formatted preference string
-          ),
-        ),
+        builder:
+            (context) => ChangeNotifierProvider(
+              create: (context) => GeneratingViewModel(),
+              child: GeneratingScreen(
+                city: _selectedCity!,
+                budget: _selectedBudget.first.name,
+                request: request,
+                fcmToken: fcmToken, // Pass the token
+              ),
+            ),
       ),
     );
   }
 
-  // --- NEW: A helper widget to build each preference slider ---
-  // This avoids code repetition
   Widget _buildPreferenceSlider({
     required String title,
     required IconData icon,
@@ -80,14 +95,20 @@ class _TripInputScreenState extends State<TripInputScreen> {
           children: [
             Row(
               children: [
-                Icon(icon, size: 20.0, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                Icon(
+                  icon,
+                  size: 20.0,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 8),
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
             Text(
-              '${value.round()}', // Display the rounded value
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              '${value.round()}',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -105,106 +126,161 @@ class _TripInputScreenState extends State<TripInputScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (kDebugMode) {
+      print('Places API Key: $_placesApiKey');
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('AI Travel Planner'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          Text('City', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          GooglePlaceAutoCompleteTextField(
+      // 1. Use a Column for the main body structure.
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 2. Place the non-scrolling widgets directly in the Column.
+            Text('City', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Theme(
+              // 2. このウィジェットにだけ適用される新しいテーマデータを作成
+              data: Theme.of(context).copyWith(
+                // 3. 入力フィールドのテーマを上書き
+                inputDecorationTheme: const InputDecorationTheme(
+                  // 4. アプリ全体のテーマが適用する枠線を「なし」に設定
+                  border: InputBorder.none,
+                ),
+              ),
+              child: GooglePlaceAutoCompleteTextField(
                 textEditingController: _cityTextController,
-                googleAPIKey: "AIzaSyAtQ8bnvTdQb24Yyb9ZbTP24fFV6h34hS8",
+                googleAPIKey: _placesApiKey,
+                inputDecoration: InputDecoration(),
                 debounceTime: 800,
-                countries: const ["my", "jp", "sg", "us", "fr", "gb", "in"],
-                isLatLngRequired: true,
-                getPlaceDetailWithLatLng: (prediction) {
-                  setState(() {
-                    _selectedCity = prediction.description;
-                  });
-                },
-                itemClick: (prediction) {
+                countries: ["my","in", "fr"], // optional by default null is set
+                isLatLngRequired:
+                    true, // if you required coordinates from place detail
+                getPlaceDetailWithLatLng: (Prediction prediction) {
+                  print("placeDetails" + prediction.lng.toString());
+                }, // this callback is called when isLatLngRequired is true
+                itemClick: (Prediction prediction) {
                   _cityTextController.text = prediction.description!;
+                  _selectedCity = prediction.description;
                   _cityTextController.selection = TextSelection.fromPosition(
-                      TextPosition(offset: prediction.description!.length));
-                }),
-          
-          const SizedBox(height: 24),
-
-          // Budget selection remains the same
-          Text('Budget Level', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          SegmentedButton<Budget>(
-            segments: const [
-              ButtonSegment<Budget>(value: Budget.low, label: Text('Low'), icon: Icon(Icons.attach_money)),
-              ButtonSegment<Budget>(value: Budget.middle, label: Text('Middle'), icon: Icon(Icons.money)),
-              ButtonSegment<Budget>(value: Budget.high, label: Text('High'), icon: Icon(Icons.diamond)),
-            ],
-            selected: _selectedBudget,
-            onSelectionChanged: (Set<Budget> newSelection) {
-              setState(() {
-                _selectedBudget = newSelection;
-              });
-            },
-            style: SegmentedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.surface,
-              selectedForegroundColor: Colors.black,
-              selectedBackgroundColor: Colors.tealAccent,
+                    TextPosition(offset: prediction.description!.length),
+                  );
+                },
+                // if we want to make custom list item builder
+                itemBuilder: (context, index, Prediction prediction) {
+                  return Container(
+                    padding: EdgeInsets.all(10),
+                    child: Row(
+                      children: [
+                        Icon(Icons.location_on),
+                        SizedBox(width: 7),
+                        Expanded(
+                          child: Text("${prediction.description ?? ""}"),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                seperatedBuilder: Divider(),
+                isCrossBtnShown: true,
+                containerHorizontalPadding: 10,
+              ),
             ),
-            multiSelectionEnabled: false,
-            emptySelectionAllowed: false,
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // --- UPDATED: User Request is now Preference Sliders ---
-          Text('Preferences', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 16),
-          _buildPreferenceSlider(
-            title: 'History',
-            icon: Icons.account_balance,
-            value: _historyPreference,
-            onChanged: (newValue) {
-              setState(() {
-                _historyPreference = newValue;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          _buildPreferenceSlider(
-            title: 'Arts & Culture',
-            icon: Icons.palette,
-            value: _artsPreference,
-            onChanged: (newValue) {
-              setState(() {
-                _artsPreference = newValue;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          _buildPreferenceSlider(
-            title: 'Food & Dining',
-            icon: Icons.restaurant,
-            value: _foodPreference,
-            onChanged: (newValue) {
-              setState(() {
-                _foodPreference = newValue;
-              });
-            },
-          ),
+            // 3. Use Expanded and ListView for the rest of the content to make it scrollable.
+            Expanded(
+              child: ListView(
+                children: [
+                  Text(
+                    'Budget Level',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<Budget>(
+                    segments: const [
+                      ButtonSegment<Budget>(
+                        value: Budget.low,
+                        label: Text('Low'),
+                        icon: Icon(Icons.attach_money),
+                      ),
+                      ButtonSegment<Budget>(
+                        value: Budget.middle,
+                        label: Text('Middle'),
+                        icon: Icon(Icons.money),
+                      ),
+                      ButtonSegment<Budget>(
+                        value: Budget.high,
+                        label: Text('High'),
+                        icon: Icon(Icons.diamond),
+                      ),
+                    ],
+                    selected: _selectedBudget,
+                    onSelectionChanged: (Set<Budget> newSelection) {
+                      setState(() {
+                        _selectedBudget = newSelection;
+                      });
+                    },
+                    // ... your button styles
+                  ),
+                  const SizedBox(height: 24),
 
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _navigateToGeneratingScreen,
-              child: const Text('Generate Plan'),
+                  Text(
+                    'Preferences',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPreferenceSlider(
+                    title: 'History',
+                    icon: Icons.account_balance,
+                    value: _historyPreference,
+                    onChanged: (newValue) {
+                      setState(() {
+                        _historyPreference = newValue;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPreferenceSlider(
+                    title: 'Arts & Culture',
+                    icon: Icons.palette,
+                    value: _artsPreference,
+                    onChanged: (newValue) {
+                      setState(() {
+                        _artsPreference = newValue;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPreferenceSlider(
+                    title: 'Food & Dining',
+                    icon: Icons.restaurant,
+                    value: _foodPreference,
+                    onChanged: (newValue) {
+                      setState(() {
+                        _foodPreference = newValue;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _navigateToGeneratingScreen,
+                      child: const Text('Generate Plan'),
+                    ),
+                  ),
+                  const SizedBox(height: 16), // Add some padding at the bottom
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

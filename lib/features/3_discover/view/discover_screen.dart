@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fyp_proj/features/3_discover/view/create_post_screen.dart';
 import 'package:fyp_proj/features/3_discover/view/post_card.dart';
 import 'package:fyp_proj/features/3_discover/viewmodel/discover_viewmodel.dart';
+import 'package:fyp_proj/features/3_discover/view/profilescreen.dart'; // ProfileScreenをインポート
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart'; // Import the shimmer package
 
@@ -72,7 +73,15 @@ class _DiscoverViewState extends State<_DiscoverView> with AutomaticKeepAliveCli
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         appBar: AppBar(
-          title: TextField(
+          // --- NEW: Drawerを開くためのアイコンを追加 ---
+          leading: Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
+          ),
+          title: 
+          TextField(
             controller: _searchController,
             autofocus: false,
             decoration: InputDecoration(
@@ -110,8 +119,38 @@ class _DiscoverViewState extends State<_DiscoverView> with AutomaticKeepAliveCli
             ),
           ],
         ),
+        // --- NEW: Drawerウィジェットを追加 ---
+        drawer: Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                child: const Text(
+                  'Menu',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('Profile'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const ProfileScreen(),
+                  ));
+                },
+              ),
+            ],
+          ),
+        ),
         body: viewModel.isLoading
-            ? _buildShimmerLoading() // Use the new shimmer loading screen
+            ? _buildShimmerLoading() 
             : RefreshIndicator(
                 onRefresh: () => viewModel.fetchInitialPosts(),
                 child: ListView.builder(
@@ -143,13 +182,12 @@ class _DiscoverViewState extends State<_DiscoverView> with AutomaticKeepAliveCli
     );
   }
 
-  // This is the new shimmer loading widget for the discover screen
   Widget _buildShimmerLoading() {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
       highlightColor: Colors.grey[100]!,
       child: ListView.builder(
-        itemCount: 3, // Display 3 shimmering post cards
+        itemCount: 3,
         itemBuilder: (context, index) {
           return const _ShimmerPostCard();
         },
@@ -158,7 +196,6 @@ class _DiscoverViewState extends State<_DiscoverView> with AutomaticKeepAliveCli
   }
 }
 
-// A dedicated widget for the post card placeholder
 class _ShimmerPostCard extends StatelessWidget {
   const _ShimmerPostCard();
 
@@ -171,7 +208,6 @@ class _ShimmerPostCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // User Header placeholder
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
@@ -194,13 +230,11 @@ class _ShimmerPostCard extends StatelessWidget {
               ],
             ),
           ),
-          // Image placeholder
           Container(
             height: MediaQuery.of(context).size.width - 8,
             width: double.infinity,
             color: Colors.white,
           ),
-          // Footer placeholder
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(

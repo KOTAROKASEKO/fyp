@@ -1,5 +1,3 @@
-// 4_plan/view/generating_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:fyp_proj/features/4_plan/ViewModel/generating_viewModel.dart';
 import 'package:provider/provider.dart';
@@ -8,12 +6,14 @@ class GeneratingScreen extends StatefulWidget {
   final String city;
   final String budget;
   final String request;
+  final String fcmToken; // Add fcmToken
 
   const GeneratingScreen({
     super.key,
     required this.city,
     required this.budget,
     required this.request,
+    required this.fcmToken, // Add to constructor
   });
 
   @override
@@ -36,14 +36,13 @@ class _GeneratingScreenState extends State<GeneratingScreen> {
       city: widget.city,
       budget: widget.budget,
       request: widget.request,
+      fcmToken: widget.fcmToken, // Pass token to ViewModel
     );
 
     if (mounted) {
       if (documentId != null) {
-        // SUCCESS: Pop all the way back to the PlanScreen
         Navigator.of(context).popUntil((route) => route.isFirst);
 
-        // Give the user clear feedback that the request was successful.
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Your plan for ${widget.city} is being generated...'),
@@ -51,8 +50,7 @@ class _GeneratingScreenState extends State<GeneratingScreen> {
           ),
         );
       } else {
-        // FAILURE: Show an error and navigate back.
-        Navigator.of(context).pop(); // Pop the generating screen
+        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Failed to create a travel request. Please try again.'),
@@ -72,8 +70,6 @@ class _GeneratingScreenState extends State<GeneratingScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Replace with a Lottie animation for a more modern feel
-              // For now, we'll keep the CircularProgressIndicator
               const CircularProgressIndicator(strokeWidth: 5),
               const SizedBox(height: 32),
               Text(

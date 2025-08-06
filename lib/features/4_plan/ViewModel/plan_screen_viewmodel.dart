@@ -5,6 +5,9 @@ import 'package:fyp_proj/features/4_plan/repository/repo.dart';
 
 class PlanScreenViewModel extends ChangeNotifier{
 
+  Stream<List<TravelThumbnail>> get travelPlansStream => _repo.getTravelPlansStream();
+
+
   bool _isLoading = true;
   bool get isLoading => _isLoading;
 

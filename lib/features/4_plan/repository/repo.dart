@@ -1,3 +1,5 @@
+// 4_plan/repository/repo.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fyp_proj/features/1_authentication/userdata.dart';
 import 'package:fyp_proj/features/4_plan/model/plan_model.dart';
@@ -5,11 +7,25 @@ import 'package:fyp_proj/features/4_plan/model/thumbnail.dart';
 
 class PlanRepo{
 
-FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // --- NEW METHOD to get a stream of plans ---
+  Stream<List<TravelThumbnail>> getTravelPlansStream() {
+    return _firestore
+        .collection('travelRequests')
+        .doc(userData.userId)
+        .collection('plans')
+        .orderBy('createdAt', descending: true) // Sort by creation date
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return TravelThumbnail.fromMap(doc.data(), doc.id);
+      }).toList();
+    });
+  }
+
+  // This method is now redundant but kept for reference or other uses.
   Future<List<TravelThumbnail>> hasTravelPlans() async {
-
-    
     var snapshot = await _firestore.collection('travelRequests').doc(userData.userId).collection('plans').get();
     List<TravelThumbnail> travelPlans = [];
     if (snapshot.docs.isNotEmpty) {
@@ -63,7 +79,8 @@ FirebaseFirestore _firestore = FirebaseFirestore.instance;
       throw Exception("Error updating plan");
     }
   }
-    Future<void> deletePlan(String documentId) async {
+
+  Future<void> deletePlan(String documentId) async {
     try {
       await _firestore
           .collection('travelRequests')

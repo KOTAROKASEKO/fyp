@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:fyp_proj/features/5_profile/model/user_profile_model.dart';
-import 'package:fyp_proj/features/5_profile/repo/profile_repository.dart';
+import 'package:fyp_proj/features/3_discover/model/user_profile_model.dart';
+import 'package:fyp_proj/features/3_discover/repo/profile_repository.dart';
 import 'package:fyp_proj/models/post_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 

@@ -4,14 +4,15 @@ import logging
 import os
 import json
 import firebase_admin
-from firebase_admin import firestore
+# この行は変更せず、そのままにします
+from firebase_admin import firestore, messaging
 from firebase_functions import options, firestore_fn
 
 # Google Cloud Services
 from google.cloud import secretmanager
 import google.generativeai as genai
 import googlemaps
-import vertexai # Keep this for other potential functions
+import vertexai
 
 # --- Step 1: Initialize Firebase Admin SDK ---
 firebase_admin.initialize_app()
@@ -20,9 +21,9 @@ firebase_admin.initialize_app()
 options.set_global_options(
     region="asia-southeast1",
     memory=options.MemoryOption.GB_1,
+    timeout_sec=3000
 )
 
-# --- Step 3: Define Global Client Placeholders ---
 gmaps_client = None
 generative_model = None
 
@@ -88,7 +89,7 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
         logging.error("Aborting travel plan generation due to client initialization failure.")
         return
 
-    db = firestore.client()
+    db = firebase_admin.firestore.client()
     user_id = event.params["userId"]
     plan_id = event.params["planId"]
     request_data = event.data.to_dict()
@@ -100,6 +101,7 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
     try:
         user_prompt = request_data.get("request", "")
         city = request_data.get("city", "")
+        fcm_token = request_data.get("fcmToken") # Get the token
         
         deconstruction_prompt = f"""
         Analyze the following user request for a trip to {city}. 
@@ -130,7 +132,7 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
         # Limit to 9 candidates to stay within API limits
         for place_id in list(candidate_place_ids)[:9]: 
             # --- 👇 MODIFIED: Added 'photos' to the requested fields ---
-            details = gmaps_client.place(place_id=place_id, fields=['place_id', 'name', 'vicinity', 'rating', 'geometry', 'photos'])
+            details = gmaps_client.place(place_id=place_id, fields=['place_id', 'name', 'vicinity', 'rating', 'geometry', 'photo'])
             place_data = details.get('result', {})
             if place_data.get('rating'):
                 valid_places.append({
@@ -177,7 +179,6 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
         if not enriched_plan:
             raise ValueError("AI failed to generate a valid plan from the provided places.")
 
-        # --- 👇 NEW: Get a photo reference for the thumbnail ---
         thumbnail_photo_reference = None
         if enriched_plan:
             first_step_place_id = enriched_plan[0].get("place_id")
@@ -187,17 +188,36 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
                 thumbnail_photo_reference = first_place_details['photos'][0].get('photo_reference')
                 logging.info(f"📸 Found photo reference for thumbnail.")
 
-        # --- 👇 MODIFIED: Added thumbnail reference to the update data ---
         update_data = {
             "status": "completed",
             "plan": enriched_plan,
-            "updatedAt": firestore.SERVER_TIMESTAMP
+            "updatedAt": firebase_admin.firestore.SERVER_TIMESTAMP
         }
         if thumbnail_photo_reference:
             update_data["thumbnail_photo_reference"] = thumbnail_photo_reference
 
         doc_ref.update(update_data)
         logging.info(f"🎉 Successfully generated and saved enriched plan for request {plan_id}.")
+
+        # --- Send Push Notification ---
+        if fcm_token:
+            try:
+                message = firebase_admin.messaging.Message(
+                    
+                notification=firebase_admin.messaging.Notification(
+                        title=f"Your plan for {city} is ready! ✈️",
+                        body="Open the app to see your personalized travel itinerary.",
+                    ),
+                    token=fcm_token,
+                )
+                # --- THIS IS THE CORRECTED LINE ---
+                response = firebase_admin.messaging.send(message)
+                logging.info(f"✅ Successfully sent notification: {response}")
+            except Exception as e:
+                logging.error(f"❌ Failed to send notification for plan {plan_id}: {e}")
+        else:
+            logging.warning(f"⚠️ No FCM token found for plan {plan_id}. Cannot send notification.")
+
 
     except Exception as e:
         logging.error(f"❌ Error processing request {plan_id}: {e}", exc_info=True)

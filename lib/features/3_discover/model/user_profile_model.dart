@@ -2,7 +2,7 @@ import 'package:hive/hive.dart';
 
 part 'user_profile_model.g.dart';
 
-@HiveType(typeId: 1) // Using a new, unique typeId
+@HiveType(typeId: 1)
 class UserProfile extends HiveObject {
   @HiveField(0)
   final String uid;
@@ -20,7 +20,7 @@ class UserProfile extends HiveObject {
   final String profileImageUrl;
 
   @HiveField(5)
-  int postCount; // Non-final to allow updates
+  int postCount;
 
   UserProfile({
     required this.uid,

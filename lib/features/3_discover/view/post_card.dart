@@ -123,6 +123,7 @@ class _PostCardState extends State<PostCard> {
     _isLikedInput?.value = post.isLikedByCurrentUser;
 
     return Card(
+      color: Colors.white,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -222,7 +223,6 @@ class _PostCardState extends State<PostCard> {
                 showSignInModal(context);
                 return;
               }
-              // Update the backend via the viewmodel
               viewModel.toggleLike(widget.post.id);
             },
             child: SizedBox(
@@ -305,35 +305,6 @@ class _PostCardState extends State<PostCard> {
             timeago.format(widget.post.timestamp.toDate()),
             style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
           ),
-          StreamBuilder<List<Comment>>(
-            stream: PostService().getLatestComment(widget.post.id),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox.shrink();
-              }
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const SizedBox.shrink();
-              }
-              final latestComment = snapshot.data!.first;
-              return Padding(
-                padding: const EdgeInsets.only(top: 4.0),
-                child: RichText(
-                  text: TextSpan(
-                    style: textTheme.bodyMedium,
-                    children: [
-                      TextSpan(
-                        text: '${latestComment.username} ',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      TextSpan(text: latestComment.text),
-                    ],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              );
-            },
-          ),
           if (widget.post.manualTags.isNotEmpty) ...[
             const SizedBox(height: 8),
             Wrap(
@@ -350,6 +321,63 @@ class _PostCardState extends State<PostCard> {
                   .toList(),
             ),
           ],
+          StreamBuilder<List<Comment>>(
+            stream: PostService().getLatestComment(widget.post.id),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox.shrink();
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              final latestComment = snapshot.data!.first;
+              return Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: GestureDetector(
+                  onTap: () {
+                    if (FirebaseAuth.instance.currentUser == null) {
+                      showSignInModal(context);
+                      return;
+                    } else {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => CommentBottomSheet(
+                          postId: widget.post.id,
+                        ),
+                      );
+                    }
+                  },
+                  child: Column(
+                  crossAxisAlignment:  CrossAxisAlignment.start,
+                  children: [
+                    Divider(
+                      color: Colors.grey.shade300,
+                      thickness: 1,
+                    ),
+                    Text('Comment: '),
+                    RichText(
+                    text: TextSpan(
+                      style: textTheme.bodyMedium,
+                      children: [
+                        TextSpan(
+                          text: '${latestComment.username} ',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(text: latestComment.text),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ]),
+                )
+              );
+            },
+          ),
+          
+          
         ],
       ),
     );
@@ -375,4 +403,5 @@ class _PostCardState extends State<PostCard> {
       ),
     );
   }
+
 }

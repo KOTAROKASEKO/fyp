@@ -1,10 +1,8 @@
 // lib/screens/main_app_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:fyp_proj/features/2_daily_quiz/view/daily_quiz_screen.dart';
 import 'package:fyp_proj/features/3_discover/view/discover_screen.dart';
 import 'package:fyp_proj/features/4_plan/view/Dash_board.dart';
-import 'package:fyp_proj/features/5_profile/view/dashboard.dart';
 
 class MainAppScreen extends StatefulWidget {
   const MainAppScreen({super.key});
@@ -21,8 +19,6 @@ class _MainAppScreenState extends State<MainAppScreen> {
   final List<Widget> _pages = [
     const DiscoverScreen(),
     const PlanScreen(),
-     DailyQuizScreen(), // Your existing dashboard logic
-    const ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -75,16 +71,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
             activeIcon: Icon(Icons.auto_awesome),
             label: 'Plan',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.task_alt_outlined),
-            activeIcon: Icon(Icons.task_alt),
-            label: 'Daily',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
+          
         ],
       ),
     );
