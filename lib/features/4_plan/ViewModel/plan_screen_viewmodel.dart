@@ -17,7 +17,7 @@ class PlanScreenViewModel extends ChangeNotifier{
   List<TravelThumbnail> _thumbnail = [];
   List<TravelThumbnail> get thumbnail => _thumbnail;
 
-  PlanRepo _repo = PlanRepo();
+  final PlanRepo _repo = PlanRepo();
 
   PlanScreenViewModel() {
     hasTravelPlans();

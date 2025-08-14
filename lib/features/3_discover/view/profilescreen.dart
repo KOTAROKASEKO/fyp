@@ -25,7 +25,8 @@ class _ProfileView extends StatelessWidget {
     return Consumer<ProfileViewModel>(
       builder: (context, viewModel, child) {
         if (viewModel.isLoading && viewModel.myPosts.isEmpty) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         }
 
         return DefaultTabController(
@@ -39,7 +40,9 @@ class _ProfileView extends StatelessWidget {
               actions: [
                 IconButton(
                   icon: const Icon(Icons.menu),
-                  onPressed: () { /* TODO: Open settings menu */ },
+                  onPressed: () {
+                    /* TODO: Open settings menu */
+                  },
                 ),
               ],
             ),
@@ -96,15 +99,22 @@ class _ProfileHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: Colors.grey.shade300,
-                backgroundImage: profile.profileImageUrl.isNotEmpty
-                    ? NetworkImage(profile.profileImageUrl)
-                    : null,
-                child: profile.profileImageUrl.isEmpty
-                    ? Icon(Icons.person, size: 40, color: Colors.grey.shade600)
-                    : null,
+              GestureDetector(
+                onTap: () {
+                  // ViewModelのメソッドを呼び出す
+                  context.read<ProfileViewModel>().updateProfileImage();
+                },
+                child: CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.grey.shade300,
+                  backgroundImage: profile.profileImageUrl.isNotEmpty
+                      ? NetworkImage(profile.profileImageUrl)
+                      : null,
+                  child: profile.profileImageUrl.isEmpty
+                      ? Icon(Icons.person,
+                          size: 40, color: Colors.grey.shade600)
+                      : null,
+                ),
               ),
               Expanded(
                 child: Row(
@@ -140,10 +150,13 @@ class _ProfileHeader extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: OutlinedButton(
-            onPressed: () { /* TODO: Navigate to Edit Profile Screen */ },
+            onPressed: () {
+              /* TODO: Navigate to Edit Profile Screen */
+            },
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 36),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             child: const Text('Edit Profile'),
           ),
@@ -178,25 +191,25 @@ class _MyPostsGrid extends StatelessWidget {
     final posts = viewModel.myPosts;
 
     if (viewModel.isLoading && posts.isEmpty) {
-        return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (posts.isEmpty) {
-        return const Center(
-            child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                    Icon(Icons.camera_alt_outlined, size: 60, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text("No Posts Yet", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                ],
-            )
-        );
+      return const Center(
+          child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.camera_alt_outlined, size: 60, color: Colors.grey),
+          SizedBox(height: 16),
+          Text("No Posts Yet",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        ],
+      ));
     }
-    
+
     return RefreshIndicator(
-        onRefresh: () => viewModel.fetchMyPosts(isInitial: true),
-        child: GridView.builder(
+      onRefresh: () => viewModel.fetchMyPosts(isInitial: true),
+      child: GridView.builder(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 1.5,

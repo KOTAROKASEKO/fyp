@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fyp_proj/features/1_authentication/auth_service.dart';
 import 'package:fyp_proj/features/3_discover/view/comment_bottomsheet.dart';
+// Import the new animation widget you just created.
 import 'package:fyp_proj/features/3_discover/viewmodel/post_service.dart';
 import 'package:fyp_proj/models/comment_model.dart';
 import 'package:fyp_proj/models/post_model.dart';
@@ -61,6 +62,8 @@ class _PostCardState extends State<PostCard> {
     _pageController.dispose();
     super.dispose();
   }
+
+
 
   void _showOptionsBottomSheet(
       BuildContext context, DiscoverViewModel viewModel) {
@@ -131,7 +134,17 @@ class _PostCardState extends State<PostCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildUserHeader(context, textTheme, viewModel),
-          _buildMainContent(context, hasImages, hasCaption, textTheme),
+          GestureDetector(
+            // MODIFIED: onDoubleTap callback
+            onDoubleTap: () {
+              if (FirebaseAuth.instance.currentUser == null) {
+                showSignInModal(context);
+                return;
+              }
+              viewModel.toggleLike(widget.post.id);
+            },
+            child: _buildMainContent(context, hasImages, hasCaption, textTheme),
+          ),
           _buildActionButtons(context, viewModel),
           _buildFooter(context, textTheme, hasImages, hasCaption),
         ],

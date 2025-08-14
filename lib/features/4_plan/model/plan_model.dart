@@ -5,8 +5,9 @@ class TravelStep {
   final String placeName;
   final String activityDescription;
   final String placeId;
-  final GeoPoint location; // 座標をGeoPointとして保持
-  bool isCompleted; // To track completion status
+  final GeoPoint location;
+  final String? photoReference; // To store the photo reference from Google Places API
+  bool isCompleted;
 
   TravelStep({
     required this.time,
@@ -14,21 +15,19 @@ class TravelStep {
     required this.activityDescription,
     required this.placeId,
     required this.location,
-    this.isCompleted = false, // Default to not completed
+    this.photoReference,
+    this.isCompleted = false,
   });
 
-  // FirestoreのMapからTravelStepオブジェクトを生成するファクトリコンストラクタ
   factory TravelStep.fromMap(Map<String, dynamic> map) {
-    // Firestoreから受け取るgeometryはMap<String, dynamic>型
     final geo = map['geometry'] as Map<String, dynamic>?;
     
     return TravelStep(
       time: map['time'] ?? 'N/A',
       placeName: map['place_name'] ?? 'Unknown Place',
       activityDescription: map['activity_description'] ?? 'No description.',
-      // place_idも必ず取得する
-      placeId: map['place_id'] ?? '', 
-      // MapからGeoPointに変換。データがない場合はデフォルト値（東京駅）を設定
+      placeId: map['place_id'] ?? '',
+      photoReference: map['photo_reference'], // Get the photo reference
       location: (geo != null && geo['lat'] != null && geo['lng'] != null)
           ? GeoPoint(geo['lat'], geo['lng'])
           : const GeoPoint(35.681236, 139.767125),
@@ -36,13 +35,13 @@ class TravelStep {
     );
   }
   
-  // Method to convert TravelStep to a Map for Firestore
   Map<String, dynamic> toMap() {
     return {
       'time': time,
       'place_name': placeName,
       'activity_description': activityDescription,
       'place_id': placeId,
+      'photo_reference': photoReference, // Add photo reference to map
       'geometry': {
         'lat': location.latitude,
         'lng': location.longitude,

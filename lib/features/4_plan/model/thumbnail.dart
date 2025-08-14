@@ -22,7 +22,7 @@ class TravelThumbnail {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       documentId: documentId,
       status: data['status'] ?? 'unknown',
-      thumbnailPhotoReference: data['thumbnailPhotoReference'],
+      thumbnailPhotoReference: data['thumbnail_photo_reference'],
     );
   }
 }

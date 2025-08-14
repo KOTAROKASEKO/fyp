@@ -15,8 +15,6 @@ class _ForgotPasswordState extends State<ForgotPassword> {
   Future<void> _resetPassword() async {
     if (_formKey.currentState!.validate()) {
       try {
-        // Import Firebase Auth at the top of your file:
-        // import 'package:firebase_auth/firebase_auth.dart';
         await FirebaseAuth.instance.sendPasswordResetEmail(
           email: _emailController.text.trim(),
         );

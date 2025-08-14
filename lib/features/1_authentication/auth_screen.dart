@@ -1,5 +1,7 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fyp_proj/firebase_service.dart/FirebaseApi.dart'; // Assuming you have this file
 import 'package:google_sign_in/google_sign_in.dart';
 
 class SignInModal extends StatefulWidget {
@@ -10,115 +12,138 @@ class SignInModal extends StatefulWidget {
 }
 
 class _SignInModalState extends State<SignInModal> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  
   bool _isSigningIn = false;
 
-  // Handles the entire sign-in flow and provides feedback to the user.
-  Future<void> _handleSignIn(Future<UserCredential?> signInMethod) async {
-    setState(() {
-      _isSigningIn = true;
-    });
-
-    try {
-      final userCredential = await signInMethod;
-      // If sign-in is successful and we have a user, close the modal.
-      if (userCredential?.user != null && mounted) {
-        print("Signed in: ${userCredential!.user!.displayName}");
-        Navigator.pop(context);
-      }
-    } on FirebaseAuthException catch (e) {
-      // Handle specific Firebase errors
-      print("Firebase Auth Error: ${e.message}");
-      _showErrorSnackbar("Sign-in failed. ${e.message}");
-    } catch (e) {
-      // Handle other errors (e.g., network, user cancellation)
-      print("General Error: $e");
-      // Check if the sign-in was cancelled by the user
-      if (e is Exception && e.toString().contains('cancelled')) {
-        _showErrorSnackbar("Sign-in cancelled.");
-      } else {
-        _showErrorSnackbar("An unexpected error occurred. Please try again.");
-      }
-    } finally {
-      // Ensure the loading state is always turned off.
-      if (mounted) {
-        setState(() {
-          _isSigningIn = false;
-        });
-      }
-    }
-  }
-  
-  void _showErrorSnackbar(String message) {
-    if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(message),
-            backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-
   Future<UserCredential?> _signInWithGoogle() async {
-    // Trigger the authentication flow
-    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+  // 1. Begin the Google Sign-In process
+    try {
+      
+      await GoogleSignIn.instance.initialize(
+        serverClientId: "965355667703-7md7nnua0qk4jafafle96rqqc9v7sukv.apps.googleusercontent.com",
+      );
+      final GoogleSignInAccount? googleUser = await GoogleSignIn.instance.authenticate();
 
-    // Obtain the auth details from the request
-    final GoogleSignInAuthentication? googleAuth = await googleUser?.authentication;
+      if (googleUser == null) {
+        return null;
+      }
 
-    // If the user cancelled or there's no auth detail, return null.
-    if (googleAuth == null) {
-        throw Exception('Google sign-in cancelled or failed.');
+      final googleAuth = googleUser.authentication;
+      final String? idToken = googleAuth.idToken;
+
+      final authClient = googleUser.authorizationClient;
+      final GoogleSignInClientAuthorization? clientAuth =
+          await authClient.authorizeScopes(['email']);
+      final String? accessToken = clientAuth?.accessToken;
+
+      // 4. Check if both tokens were successfully retrieved.
+      if (accessToken == null) {
+        throw 'Failed to get access token from Google.';
+      }
+      if (idToken == null) {
+        throw 'Failed to get id token from Google.';
+      }
+
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: accessToken,
+        idToken: idToken,
+      );
+
+      await uploadFcm();
+      return await FirebaseAuth.instance.signInWithCredential(credential);
+
+
+    } catch (error) {
+      print("Error during Google Sign-In: $error");
+      return null;
     }
-
-    // Create a new credential
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-
-    // Once signed in, return the UserCredential
-    return await _auth.signInWithCredential(credential);
   }
 
+  Future<void> uploadFcm() async{
+    FcmService().saveTokenToDatabase(
+      await FirebaseMessaging.instance.getToken() ?? '',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child:Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          const Text(
-            'Sign In to Continue',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          if (_isSigningIn)
-            const Padding(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Text(
+              'Sign In to Continue',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            if (_isSigningIn)
+              const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20.0),
                 child: CircularProgressIndicator(),
-            )
-          else
-            Column(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _handleSignIn(_signInWithGoogle()),
-                  icon: const Icon(Icons.login),
-                  label: const Text('Sign in with Google'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                  ),
+              )
+            else
+              ElevatedButton.icon(
+                onPressed: _signInWithGoogle,
+                icon: const Icon(Icons.login),
+                label: const Text('Sign in with Google'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
                 ),
-                const SizedBox(height: 12),
-              ],
-            ),
-          const SizedBox(height: 10),
-        ],
+              ),
+            const SizedBox(height: 10),
+          ],
+        ),
       ),
-    ));
+    );
+  }
+
+}
+
+class SignOutModal extends StatefulWidget {
+
+  const SignOutModal({super.key});
+
+  @override
+  State<SignOutModal> createState() => _SignOutModalState();
+}
+
+class _SignOutModalState extends State<SignOutModal> {
+  
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Text(
+              'Are you sure you want to sign out?',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () async {
+                // **FIX:** Use disconnect to revoke tokens and sign out from Google.
+                await GoogleSignIn.instance.disconnect();
+                await FirebaseAuth.instance.signOut();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Sign out successful.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  Navigator.pop(context, true);
+                }
+              },
+              child: const Text('Sign Out'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

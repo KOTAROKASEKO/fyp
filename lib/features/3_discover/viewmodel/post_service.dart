@@ -101,7 +101,7 @@ class PostService {
       });
     } catch (e) {
       print("Error creating post: $e");
-      throw e;
+      rethrow;
     }
   }
 
@@ -170,7 +170,7 @@ class PostService {
       }
     } catch (e) {
       print("Error adding comment: $e");
-      throw e;
+      rethrow;
     }
   }
 
@@ -260,7 +260,7 @@ class PostService {
       // 5. If any part of this process fails, we catch the error.
       print("Error toggling save state: $e");
       // Re-throw the exception so the ViewModel can catch it and handle the UI rollback.
-      throw e;
+      rethrow;
     }
   }
 

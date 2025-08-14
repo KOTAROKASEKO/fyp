@@ -4,7 +4,6 @@ import logging
 import os
 import json
 import firebase_admin
-# この行は変更せず、そのままにします
 from firebase_admin import firestore, messaging
 from firebase_functions import options, firestore_fn
 
@@ -21,15 +20,15 @@ firebase_admin.initialize_app()
 options.set_global_options(
     region="asia-southeast1",
     memory=options.MemoryOption.GB_1,
-    timeout_sec=3000
+    timeout_sec=120
 )
 
 gmaps_client = None
 generative_model = None
 
 # --- Step 4: Import Function Definitions ---
-from dailyquiz import generate_daily_quiz
 from posts import autoTagPost, onPostInteraction, onPostSaved, onPostUnsaved
+from post_notifications import send_like_notification
 
 
 def _get_secret(secret_id: str, project_id: str) -> str | None:
@@ -67,7 +66,6 @@ def _initialize_clients():
         GOOGLE_AI_API_KEY = _get_secret("GOOGLE_AI_API_KEY", PROJECT_ID)
         if GOOGLE_AI_API_KEY:
             genai.configure(api_key=GOOGLE_AI_API_KEY)
-            # It's better to use a specific version for stability, e.g., 'gemini-1.5-flash'
             generative_model = genai.GenerativeModel('gemini-1.5-flash')
         else:
             logging.error("Google AI API Key is missing. AI functionality will be disabled.")
@@ -101,7 +99,7 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
     try:
         user_prompt = request_data.get("request", "")
         city = request_data.get("city", "")
-        fcm_token = request_data.get("fcmToken") # Get the token
+        fcm_token = request_data.get("fcmToken")
         
         deconstruction_prompt = f"""
         Analyze the following user request for a trip to {city}. 
@@ -122,17 +120,15 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
         start_location = geocode_result[0]['geometry']['location']
         candidate_place_ids = set()
         for keyword in search_keywords:
-            places_result = gmaps_client.places(query=keyword, location=start_location, radius=10000)
+            places_result = gmaps_client.places(query=keyword, location=start_location, radius=20000)
             for place in places_result.get('results', []):
                 candidate_place_ids.add(place['place_id'])
         
         logging.info(f"📍 Found {len(candidate_place_ids)} candidate places.")
 
         valid_places = []
-        # Limit to 9 candidates to stay within API limits
-        for place_id in list(candidate_place_ids)[:9]: 
-            # --- 👇 MODIFIED: Added 'photos' to the requested fields ---
-            details = gmaps_client.place(place_id=place_id, fields=['place_id', 'name', 'vicinity', 'rating', 'geometry', 'photo'])
+        for place_id in list(candidate_place_ids)[:15]:
+            details = gmaps_client.place(place_id=place_id, fields=['place_id', 'name', 'vicinity', 'rating', 'geometry', 'photo', 'type'])
             place_data = details.get('result', {})
             if place_data.get('rating'):
                 valid_places.append({
@@ -141,8 +137,8 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
                     "address": place_data.get('vicinity'),
                     "rating": place_data.get('rating'), 
                     "geometry": place_data.get('geometry', {}).get('location', {}),
-                    # --- 👇 ADDED: Storing the photo data ---
-                    "photos": place_data.get('photos')
+                    "photos": place_data.get('photos'),
+                    "types": place_data.get('types')
                 })
         
         logging.info(f"✅ Filtered down to {len(valid_places)} valid places with details.")
@@ -150,16 +146,42 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
         if not valid_places:
             raise ValueError("No valid places found after filtering.")
 
+        # main.py の修正案 (synthesis_prompt の部分)
+
         synthesis_prompt = f"""
-        You are an expert travel planner. Create a logical and enjoyable half-day itinerary in {city}.
-        Here is a list of available places with their details: {json.dumps(valid_places, indent=2)}
-        Your task is to select 3-4 places from the list that form a coherent schedule.
-        The final output must be a JSON object with a key "plan" which is an array of events.
-        Each event in the array should have 'time', 'place_name', and 'activity_description'.
-        Do not include places that are not in the provided list.
-        Ensure the 'place_name' in your output exactly matches a 'name' from the provided list.
-        Output ONLY the JSON object.
+        You are a master storyteller and a travel poet, creating an unforgettable narrative for a trip to {city}.
+        The user's preferences are: "{user_prompt}".
+
+        Here is a palette of inspirational places, including potential hotels:
+        {json.dumps(valid_places, indent=2)}
+
+        **Your Mission:**
+        1. **Select a Hotel:** From the list, choose ONE suitable hotel that will serve as the starting and ending point of the journey.
+        2. **Curate a Journey:** Select 3-5 additional places that perfectly align with the user's request, creating a logical and magical flow for their day.
+        3. **Breathe Life into Each Step:** For each place (including the hotel check-in), write a captivating 'activity_description'. Frame each activity as a unique experience. Adapt your voice to the user's occasion.
+        4. **Calculate Estimated Cost:** Based on the selected places and activities, calculate an estimated total cost for the entire plan in Japanese Yen (JPY). Consider typical expenses like food, tickets, and transport.
+        5. **Format as JSON:** The final output MUST be a valid JSON object. It should have a key "plan" (an array of events) and a key "estimated_total_cost" (an integer). The first event in the plan should always be the hotel check-in.
+
+        **Example of Your Art:**
+        {{
+            "plan": [
+                {{
+                    "time": "3:00 PM",
+                    "place_name": "The Grand Palace Hotel",
+                    "activity_description": "Your adventure begins here. Drop off your bags in a room with a view, take a deep breath, and feel the excitement of the city settle in. This is your sanctuary, your basecamp for the story you're about to write."
+                }},
+                {{
+                    "time": "5:00 PM",
+                    "place_name": "Serenity Art Gallery",
+                    "activity_description": "As the afternoon sun casts a golden glow, wander hand-in-hand with your partner through halls of inspiration. Let the quiet hum of the gallery be the soundtrack to your own private world."
+                }}
+            ],
+            "estimated_total_cost": 25000
+        }}
+
+        Now, begin your creation for the user's trip to {city}. Output ONLY the JSON object.
         """
+        
         final_plan_response = generative_model.generate_content(synthesis_prompt)
         ai_plan_data = json.loads(final_plan_response.text.strip().replace("```json", "").replace("```", ""))
         ai_plan = ai_plan_data.get("plan", [])
@@ -172,6 +194,9 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
             if matching_place:
                 step["place_id"] = matching_place.get("place_id")
                 step["geometry"] = matching_place.get("geometry")
+                # Add photo reference to each step if available
+                if matching_place.get('photos'):
+                    step['photo_reference'] = matching_place['photos'][0].get('photo_reference')
                 enriched_plan.append(step)
             else:
                 logging.warning(f"AI generated a place '{place_name}' not found in the valid places list. Skipping.")
@@ -191,7 +216,7 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
         update_data = {
             "status": "completed",
             "plan": enriched_plan,
-            "updatedAt": firebase_admin.firestore.SERVER_TIMESTAMP
+            "updatedAt": firestore.SERVER_TIMESTAMP
         }
         if thumbnail_photo_reference:
             update_data["thumbnail_photo_reference"] = thumbnail_photo_reference
@@ -199,25 +224,21 @@ def generate_travel_plan(event: firestore_fn.Event[firestore.DocumentSnapshot]) 
         doc_ref.update(update_data)
         logging.info(f"🎉 Successfully generated and saved enriched plan for request {plan_id}.")
 
-        # --- Send Push Notification ---
         if fcm_token:
             try:
-                message = firebase_admin.messaging.Message(
-                    
-                notification=firebase_admin.messaging.Notification(
+                message = messaging.Message(
+                    notification=messaging.Notification(
                         title=f"Your plan for {city} is ready! ✈️",
                         body="Open the app to see your personalized travel itinerary.",
                     ),
                     token=fcm_token,
                 )
-                # --- THIS IS THE CORRECTED LINE ---
-                response = firebase_admin.messaging.send(message)
+                response = messaging.send(message)
                 logging.info(f"✅ Successfully sent notification: {response}")
             except Exception as e:
                 logging.error(f"❌ Failed to send notification for plan {plan_id}: {e}")
         else:
             logging.warning(f"⚠️ No FCM token found for plan {plan_id}. Cannot send notification.")
-
 
     except Exception as e:
         logging.error(f"❌ Error processing request {plan_id}: {e}", exc_info=True)

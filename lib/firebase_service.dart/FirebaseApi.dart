@@ -18,7 +18,6 @@ class FcmService {
       await saveTokenToDatabase(fcmToken);
     }
 
-    // 3. トークンが更新されたらDBも更新
     _firebaseMessaging.onTokenRefresh.listen(saveTokenToDatabase);
   }
 
@@ -27,9 +26,9 @@ class FcmService {
     if (userId == null) return;
 
     try {
-      await _firestore.collection('users').doc(userId).set(
+      await _firestore.collection('users_token').doc(userId).set(
         {'fcmToken': token},
-        SetOptions(merge: true), // 既存のフィールドを上書きしない
+        SetOptions(merge: true),
       );
       print("FCM token saved to Firestore.");
     } catch (e) {

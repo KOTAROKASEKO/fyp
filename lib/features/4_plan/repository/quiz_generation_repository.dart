@@ -74,7 +74,7 @@ class QuizGenerationRepository {
 
       if (response.statusCode == 200) {
         final decodedResponse = jsonDecode(response.body);
-        print('1 api response : ${decodedResponse}');
+        print('1 api response : $decodedResponse');
         
         // This part of the code can now be simpler and more robust because we are forcing a consistent output.
         final content = decodedResponse['candidates'][0]['content']['parts'][0]['text'];

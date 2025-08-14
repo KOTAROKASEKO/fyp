@@ -1,4 +1,7 @@
+// 4_plan/view/Dash_board.dart
+
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // ADD THIS IMPORT
 import 'package:fyp_proj/features/4_plan/ViewModel/plan_detail_screen_viewmodel.dart';
 import 'package:fyp_proj/features/4_plan/ViewModel/plan_screen_viewmodel.dart';
 import 'package:fyp_proj/features/4_plan/model/thumbnail.dart';
@@ -192,11 +195,13 @@ class PlanScreen extends StatelessWidget {
   Widget _buildDestinationCard(TravelThumbnail step, BuildContext context) {
     final viewModel = Provider.of<PlanScreenViewModel>(context, listen: false);
 
+    final String mapsApiKey = dotenv.env['Maps_api_key'] ?? '';
+    print('Maps API Key: $mapsApiKey');
+
     Widget trailingWidget;
     switch (step.status) {
       case 'completed':
-        trailingWidget =
-            const Icon(Icons.arrow_forward_ios, color: Colors.white);
+        trailingWidget = const Icon(Icons.arrow_forward_ios, color: Colors.white);
         break;
       case 'processing':
       case 'pending':
@@ -216,13 +221,25 @@ class PlanScreen extends StatelessWidget {
     }
 
     final bool isTappable = step.status == 'completed';
+
+    // Construct the image URL if the reference and key are available
+    String? imageUrl;
+    if (step.thumbnailPhotoReference != null && mapsApiKey.isNotEmpty) {
+      imageUrl = 'https://maps.googleapis.com/maps/api/place/photo'
+          '?maxwidth=400'
+          '&photo_reference=${step.thumbnailPhotoReference}'
+          '&key=$mapsApiKey';
+          print("image url :$imageUrl");
+    }else{
+      print("photo reference : ${step.thumbnailPhotoReference}");
+      print("image url : ${mapsApiKey.isNotEmpty}");
+    }
+
     return Card(
-      color: Colors.blueGrey,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      clipBehavior: Clip
-          .antiAlias,
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: isTappable
             ? () {
@@ -274,32 +291,66 @@ class PlanScreen extends StatelessWidget {
         child: Stack(
           alignment: Alignment.bottomLeft,
           children: [
-            // Background Image
+            // --- NEW: Background Image Widget ---
+            if (imageUrl != null)
+              SizedBox(
+                height: 150,
+                width: double.infinity,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(child: CircularProgressIndicator());
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(Icons.broken_image, size: 40, color: Colors.grey);
+                  },
+                ),
+              )
+            else
+              // Fallback if there is no image
+              Container(
+                height: 150,
+                width: double.infinity,
+                color: Colors.blueGrey,
+              ),
+
+            // --- NEW: Gradient Overlay for text readability ---
             Container(
-              height: 150, // Give the card a fixed height
-              width: double.infinity,
+              height: 150,
               decoration: BoxDecoration(
-                
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.8),
+                  ],
+                ),
               ),
             ),
+            
             // Content laid over the image
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min, // Takes minimum space
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          overflow: TextOverflow.ellipsis,
                           step.city,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
+                            shadows: [Shadow(blurRadius: 2.0, color: Colors.black54)],
                           ),
                         ),
                         const SizedBox(height: 4),

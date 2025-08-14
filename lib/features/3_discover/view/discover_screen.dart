@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:fyp_proj/features/1_authentication/auth_service.dart';
 import 'package:fyp_proj/features/3_discover/view/create_post_screen.dart';
 import 'package:fyp_proj/features/3_discover/view/post_card.dart';
 import 'package:fyp_proj/features/3_discover/viewmodel/discover_viewmodel.dart';
@@ -27,7 +28,8 @@ class _DiscoverView extends StatefulWidget {
   State<_DiscoverView> createState() => _DiscoverViewState();
 }
 
-class _DiscoverViewState extends State<_DiscoverView> with AutomaticKeepAliveClientMixin {
+class _DiscoverViewState extends State<_DiscoverView>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
   final _scrollController = ScrollController();
@@ -37,18 +39,21 @@ class _DiscoverViewState extends State<_DiscoverView> with AutomaticKeepAliveCli
   @override
   void initState() {
     super.initState();
-    
+
     _searchController.addListener(() {
       if (_debounce?.isActive ?? false) _debounce!.cancel();
       _debounce = Timer(const Duration(milliseconds: 500), () {
         if (mounted) {
-          context.read<DiscoverViewModel>().applySearchQuery(_searchController.text);
+          context
+              .read<DiscoverViewModel>()
+              .applySearchQuery(_searchController.text);
         }
       });
     });
 
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
         if (mounted) {
           context.read<DiscoverViewModel>().fetchMorePosts();
         }
@@ -73,30 +78,31 @@ class _DiscoverViewState extends State<_DiscoverView> with AutomaticKeepAliveCli
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         appBar: AppBar(
-          // --- NEW: Drawerを開くためのアイコンを追加 ---
           leading: Builder(
             builder: (context) => IconButton(
               icon: const Icon(Icons.menu),
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           ),
-          title: 
-          TextField(
+          title: TextField(
             controller: _searchController,
             autofocus: false,
             decoration: InputDecoration(
               hintText: 'Search by caption or tag...',
-              prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+              prefixIcon:
+                  const Icon(Icons.search, color: Colors.grey, size: 20),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                      icon: const Icon(Icons.clear,
+                          color: Colors.grey, size: 20),
                       onPressed: () {
                         _searchController.clear();
                       },
                     )
                   : null,
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(30.0),
                 borderSide: BorderSide.none,
@@ -146,16 +152,29 @@ class _DiscoverViewState extends State<_DiscoverView> with AutomaticKeepAliveCli
                   ));
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('Log out'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final bool? signedOut = await showSignOutModal(context);
+                  if (signedOut == true) {
+                    //reload the page if the user logged out
+                    viewModel.fetchInitialPosts();
+                  }
+                },
+              ),
             ],
           ),
         ),
         body: viewModel.isLoading
-            ? _buildShimmerLoading() 
+            ? _buildShimmerLoading()
             : RefreshIndicator(
                 onRefresh: () => viewModel.fetchInitialPosts(),
                 child: ListView.builder(
                   controller: _scrollController,
-                  itemCount: viewModel.posts.length + (viewModel.isLoadingMore ? 1 : 0),
+                  itemCount: viewModel.posts.length +
+                      (viewModel.isLoadingMore ? 1 : 0),
                   itemBuilder: (context, index) {
                     if (viewModel.posts.isEmpty && !viewModel.isLoadingMore) {
                       return const Center(
@@ -242,7 +261,8 @@ class _ShimmerPostCard extends StatelessWidget {
               children: [
                 Container(width: 100, height: 14, color: Colors.white),
                 const SizedBox(height: 8),
-                Container(width: double.infinity, height: 14, color: Colors.white),
+                Container(
+                    width: double.infinity, height: 14, color: Colors.white),
                 const SizedBox(height: 4),
                 Container(width: 150, height: 14, color: Colors.white),
               ],

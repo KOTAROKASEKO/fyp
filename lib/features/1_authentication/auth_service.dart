@@ -10,3 +10,12 @@ void showSignInModal(BuildContext context) {
     },
   );
 }
+
+Future<bool?> showSignOutModal(BuildContext context) {
+  return showModalBottomSheet<bool>(
+    context: context,
+    builder: (BuildContext bc) {
+      return const SignOutModal();
+    },
+  );
+}

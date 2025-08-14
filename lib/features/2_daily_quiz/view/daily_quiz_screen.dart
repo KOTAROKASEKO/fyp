@@ -11,6 +11,8 @@ import 'package:fyp_proj/features/2_daily_quiz/DATABASE/DB_quiz.dart';
 import 'package:fyp_proj/models/quiz_model.dart';
 
 class DailyQuizScreen extends StatefulWidget {
+  const DailyQuizScreen({super.key});
+
   @override
   State<DailyQuizScreen> createState() => _DailyQuizScreenState();
 }
@@ -320,7 +322,7 @@ class _DashboardViewState extends State<_DashboardView> {
                               ],
                             ),
                           );
-                        }).toList(),
+                        }),
                     ],
                   ),
                 ),

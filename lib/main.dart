@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -12,22 +11,18 @@ import 'package:fyp_proj/features/4_plan/model/quiz_generation_model.dart';
 import 'package:fyp_proj/features/3_discover/model/user_profile_model.dart';
 import 'package:fyp_proj/features/app/app_main_screen.dart';
 import 'package:fyp_proj/firebase_options.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:rive/rive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   RiveFile.initialize();
   await dotenv.load(fileName: ".env");
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
-  );
-    await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.playIntegrity,
   );
   await initHive();
   await _initFcm();
@@ -114,7 +109,7 @@ class MyApp extends StatelessWidget {
 ThemeData _buildTheme(BuildContext context) {
   const primaryColor = Color(0xFF0D47A1); // A deeper, more professional blue
   const secondaryColor = Color(0xFFFFC107); // A vibrant, complementary amber
-  const backgroundColor = Color(0xFFFDFDFD); // A slightly off-white for a softer look
+  const backgroundColor = Color(0xFFFDFDFD);
   const surfaceColor = Colors.white;
   final textTheme = Theme.of(context).textTheme;
 
@@ -170,7 +165,7 @@ ThemeData _buildTheme(BuildContext context) {
       ),
     ),
 
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
